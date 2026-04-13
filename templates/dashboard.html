@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-speedometer2 me-2"></i>Dashboard</h4>
+    <small class="text-muted">BIM Infra Solutions — Outreach Overview</small>
+  </div>
+  <small class="text-muted">{{ now.strftime('%B %d, %Y') }}</small>
+</div>
+
+<!-- Stat Cards -->
+<div class="row g-3 mb-4">
+  <div class="col">
+    <div class="stat-card">
+      <div class="number">{{ stats.total_leads }}</div>
+      <div class="label">Total Leads</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="number" style="color:#b71c1c;">{{ stats.hot_leads }}</div>
+      <div class="label">Hot Leads</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="number" style="color:#1b5e20;">{{ stats.new_leads }}</div>
+      <div class="label">New Leads</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="number">{{ stats.emails_sent }}</div>
+      <div class="label">Emails Sent</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="number" style="color:#D4A017;">{{ stats.emails_today }}</div>
+      <div class="label">Sent Today</div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="stat-card">
+      <div class="number" style="color:#4a148c;">{{ stats.pending_tasks }}</div>
+      <div class="label">Pending Tasks</div>
+    </div>
+  </div>
+</div>
+
+<!-- Zoho Delivery Scanner -->
+<div class="card mb-3" style="border-left:4px solid #1B3A6B;">
+  <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <strong style="font-size:13px;"><i class="bi bi-radar me-1" style="color:#1B3A6B;"></i>Zoho Mail Scanner</strong>
+      <span class="text-muted ms-2" style="font-size:12px;">Check bounces, rejections, out-of-office and new replies from your sent emails</span>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/replies/sync-delivery" class="btn btn-bim btn-sm">
+        <i class="bi bi-radar me-1"></i> Run Delivery Scan
+      </a>
+      <a href="/replies" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-inbox me-1"></i> View Replies
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Invalid leads alert -->
+{% set invalid_count = stats.status_counts.get('Invalid', 0) %}
+{% if invalid_count > 0 %}
+<div class="alert py-2 mb-3 d-flex justify-content-between align-items-center"
+     style="background:#ffebee;border:1px solid #ef9a9a;font-size:13px;">
+  <span>
+    <i class="bi bi-exclamation-triangle-fill me-2" style="color:#c62828;"></i>
+    <strong>{{ invalid_count }} lead(s)</strong> marked Invalid — emails bounced or undeliverable.
+    Use Hunter.io to find correct addresses.
+  </span>
+  <a href="/leads?status=Invalid" class="btn btn-sm" style="background:#c62828;color:#fff;font-size:12px;">
+    View Invalid Leads
+  </a>
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+  <!-- Pipeline -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white"><strong>Lead Pipeline</strong></div>
+      <div class="card-body">
+        {% set colors = {'New':'#1565c0','Hot':'#b71c1c','Warm':'#e65100','Contacted':'#1b5e20','Engaged':'#4a148c','Cold':'#283593','Unsubscribed':'#616161','Invalid':'#c62828'} %}
+        {% for s, cnt in stats.status_counts.items() %}
+        {% set pct = ((cnt / stats.total_leads * 100) | round) if stats.total_leads > 0 else 0 %}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span style="font-size:13px;width:110px;">{{ s }}</span>
+          <div class="d-flex align-items-center gap-2 flex-grow-1 ms-2">
+            <div style="flex:1;height:6px;background:#f0f0f0;border-radius:3px;">
+              <div style="width:{{ pct }}%;height:100%;background:{{ colors.get(s,'#1B3A6B') }};border-radius:3px;"></div>
+            </div>
+            <span class="badge" style="background:{{ colors.get(s,'#1B3A6B') }};color:#fff;min-width:26px;font-size:11px;">{{ cnt }}</span>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-muted text-center" style="font-size:13px;">No leads yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Pending Tasks -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white"><strong>Pending Tasks</strong></div>
+      <div class="card-body p-0">
+        {% if tasks %}
+        <ul class="list-group list-group-flush">
+          {% for task in tasks[:7] %}
+          <li class="list-group-item px-3 py-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div style="font-size:13px;font-weight:500;">{{ task.subject[:45] }}{% if task.subject|length > 45 %}…{% endif %}</div>
+                <div style="font-size:11px;color:#888;">
+                  <a href="/leads/{{ task.lead_id }}" style="color:#1B3A6B;">{{ task.first_name }} {{ task.last_name }}</a>
+                  · {{ task.company or '' }}
+                </div>
+              </div>
+              <form method="POST" action="/tasks/{{ task.id }}/complete" class="ms-2">
+                <button class="btn btn-sm btn-outline-success" style="font-size:11px;padding:1px 7px;">Done</button>
+              </form>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:13px;">No pending tasks</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Leads -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Recent Leads</strong>
+        <a href="/leads" style="font-size:12px;color:#1B3A6B;">View all</a>
+      </div>
+      <div class="card-body p-0">
+        {% if stats.recent_leads %}
+        <ul class="list-group list-group-flush">
+          {% for lead in stats.recent_leads %}
+          <li class="list-group-item px-3 py-2">
+            <a href="/leads/{{ lead.id }}" style="color:inherit;">
+              <div style="font-size:13px;font-weight:500;">
+                {% if lead.status == 'Hot' %}<span style="color:#b71c1c;">&#x1F525; </span>{% endif %}
+                {{ lead.first_name }} {{ lead.last_name }}
+              </div>
+              <div style="font-size:11px;color:#888;">{{ lead.company }} · {{ lead.country }}</div>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:13px;">
+          No leads yet. <a href="/leads/new">Add one</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

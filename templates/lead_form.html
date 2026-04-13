@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4>{{ action }} Lead</h4>
+    <small class="text-muted">Fill in the contact details below</small>
+  </div>
+  <a href="/leads" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      <div class="row g-3">
+
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+          <input type="text" name="first_name" class="form-control" required
+                 value="{{ lead.first_name if lead else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Last Name</label>
+          <input type="text" name="last_name" class="form-control"
+                 value="{{ lead.last_name if lead else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+          <input type="email" name="email" class="form-control" required
+                 value="{{ lead.email if lead else '' }}">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Company</label>
+          <input type="text" name="company" class="form-control"
+                 value="{{ lead.company if lead else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Title / Role</label>
+          <input type="text" name="title" class="form-control"
+                 value="{{ lead.title if lead else '' }}" placeholder="e.g. BIM Manager">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Phone</label>
+          <input type="text" name="phone" class="form-control"
+                 value="{{ lead.phone if lead else '' }}">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Website</label>
+          <input type="text" name="website" class="form-control"
+                 value="{{ lead.website if lead else '' }}" placeholder="https://...">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">City</label>
+          <input type="text" name="city" class="form-control"
+                 value="{{ lead.city if lead else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Country</label>
+          <select name="country" class="form-select">
+            {% for c in ['USA','Germany','Australia','UK','Canada','India','UAE','Other'] %}
+            <option {% if (lead and lead.country == c) or (not lead and c == 'USA') %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Industry</label>
+          <input type="text" name="industry" class="form-control"
+                 value="{{ lead.industry if lead else '' }}" placeholder="e.g. General Contractor">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Email Template</label>
+          <select name="email_template" class="form-select">
+            <option value="A" {% if lead and lead.email_template == 'A' %}selected{% elif not lead %}selected{% endif %}>A — Enterprise / GC</option>
+            <option value="B" {% if lead and lead.email_template == 'B' %}selected{% endif %}>B — Architecture Firms</option>
+            <option value="C" {% if lead and lead.email_template == 'C' %}selected{% endif %}>C — Drone / Scan-to-BIM</option>
+            <option value="D" {% if lead and lead.email_template == 'D' %}selected{% endif %}>D — INFRA X Drone Progress Monitoring</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Priority Score (0–100)</label>
+          <input type="number" name="priority_score" class="form-control" min="0" max="100"
+                 value="{{ lead.priority_score if lead else 50 }}">
+        </div>
+
+        {% if lead %}
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Status</label>
+          <select name="status" class="form-select">
+            {% for s in ['New','Contacted','Hot','Warm','Engaged','Cold','Unsubscribed','Invalid'] %}
+            <option {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">LinkedIn URL</label>
+          <input type="text" name="linkedin_url" class="form-control"
+                 value="{{ lead.linkedin_url if lead else '' }}" placeholder="https://linkedin.com/in/...">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Services Needed</label>
+          <input type="text" name="services_needed" class="form-control"
+                 value="{{ lead.services_needed if lead else '' }}" placeholder="e.g. Revit modeling, Clash detection">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Outsourcing Likelihood</label>
+          <select name="outsourcing_likelihood" class="form-select">
+            {% for l in ['High','Medium','Low','Unknown'] %}
+            <option {% if lead and lead.outsourcing_likelihood == l %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Pitch Angle</label>
+          <input type="text" name="pitch_angle" class="form-control"
+                 value="{{ lead.pitch_angle if lead else '' }}" placeholder="e.g. Capacity expansion during peak season">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label fw-semibold">Pain Point / Notes</label>
+          <textarea name="description" class="form-control" rows="3"
+                    placeholder="What problem does this lead have?">{{ lead.description if lead else '' }}</textarea>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-bim px-4">
+            <i class="bi bi-check-circle me-1"></i>
+            {{ 'Update Lead' if lead else 'Create Lead' }}
+          </button>
+          <a href="{{ '/leads/' + lead.id|string if lead else '/leads' }}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

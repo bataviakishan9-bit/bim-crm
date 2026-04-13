@@ -1,0 +1,19 @@
+# Database
+bim_crm.db
+crm.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Excel temp files
+~$*
+*.xlsx
+
+# Deployment
+BIM_CRM_deploy.zip

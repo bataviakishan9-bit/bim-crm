@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <h4><i class="bi bi-gear me-2"></i>Settings</h4>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-white"><strong>Zoho Mail Configuration</strong></div>
+  <div class="card-body">
+    <p style="font-size:13px;color:#666;">
+      Credentials are loaded from the <code>.env</code> file in the BIM_CRM folder.
+      Edit the file directly to update values, then restart the app.
+    </p>
+
+    <table class="table table-sm" style="font-size:13px;max-width:500px;">
+      <tr>
+        <td width="200"><strong>ZOHO_CLIENT_ID</strong></td>
+        <td>{{ zoho_client_id }}</td>
+      </tr>
+      <tr>
+        <td><strong>ZOHO_DC</strong></td>
+        <td>{{ zoho_dc }}</td>
+      </tr>
+      <tr>
+        <td><strong>ZOHO_MAIL_ACCOUNT_ID</strong></td>
+        <td>{{ zoho_account_id or '<span class="text-danger">NOT SET</span>' | safe }}</td>
+      </tr>
+      <tr>
+        <td><strong>SENDER_EMAIL</strong></td>
+        <td>kishan@biminfrasolutions.in</td>
+      </tr>
+    </table>
+
+    <div class="d-flex gap-2 mt-3">
+      <a href="/test-connection" class="btn btn-bim btn-sm">
+        <i class="bi bi-wifi me-1"></i> Test Zoho Mail Connection
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-white"><strong><i class="bi bi-search me-1" style="color:#e65100;"></i> Hunter.io — Email Finder Integration</strong></div>
+  <div class="card-body" style="font-size:13px;">
+    <p style="color:#666;">Hunter.io finds and verifies professional email addresses. Free plan = 25 searches/month.</p>
+
+    <table class="table table-sm" style="max-width:500px;">
+      <tr>
+        <td width="200"><strong>HUNTER_API_KEY</strong></td>
+        <td>
+          {% if hunter_key %}
+            <span class="badge" style="background:#e8f5e9;color:#2e7d32;">✓ Configured</span>
+            <span style="color:#aaa;font-size:11px;margin-left:6px;">{{ hunter_key }}</span>
+          {% else %}
+            <span class="badge" style="background:#ffebee;color:#c62828;">Not set</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <div class="mt-2 p-3 rounded" style="background:#fff8e1;border-left:4px solid #e65100;font-size:12px;">
+      <strong>How to get your free Hunter.io API key:</strong>
+      <ol class="mb-0 mt-1">
+        <li>Go to <strong>hunter.io</strong> → Sign up free</li>
+        <li>Go to <strong>API</strong> section in your dashboard</li>
+        <li>Copy your API key</li>
+        <li>Open <code>C:\Users\Kishan\BIM_CRM\.env</code></li>
+        <li>Paste it: <code>HUNTER_API_KEY=your_key_here</code></li>
+        <li>Restart the app</li>
+      </ol>
+    </div>
+
+    <p style="margin-top:10px;color:#555;">
+      Once set, every lead detail page shows a <strong>Hunter.io panel</strong> to:
+      <ul class="mb-0">
+        <li>Verify the current email (valid / invalid / risky)</li>
+        <li>Find the correct email by name + company domain</li>
+        <li>Search all emails at a company domain</li>
+        <li>One-click update the lead's email when found</li>
+      </ul>
+    </p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-white"><strong>How to update credentials</strong></div>
+  <div class="card-body" style="font-size:13px;">
+    <ol>
+      <li>Open <code>C:\Users\Kishan\BIM_CRM\.env</code> in Notepad</li>
+      <li>Update the values</li>
+      <li>Save the file</li>
+      <li>Stop and restart the app: <code>python app.py</code></li>
+    </ol>
+
+    <p class="mb-1"><strong>.env template:</strong></p>
+    <pre style="background:#f8f9fa;padding:12px;border-radius:6px;font-size:12px;">ZOHO_CLIENT_ID=1000.xxxxxxxxxx
+ZOHO_CLIENT_SECRET=xxxxxxxxxx
+ZOHO_REFRESH_TOKEN=1000.xxxxxxxxxx.xxxxxxxxxx
+ZOHO_DC=in
+ZOHO_MAIL_ACCOUNT_ID=1234567890
+SECRET_KEY=bim-infra-crm-2025</pre>
+
+    <p style="color:#666;font-size:12px;margin-top:10px;">
+      Don't have credentials yet?
+      Run <code>python C:\Users\Kishan\get_token.py</code> to generate them automatically.
+    </p>
+  </div>
+</div>
+
+{% endblock %}

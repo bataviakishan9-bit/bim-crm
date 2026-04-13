@@ -1,0 +1,1066 @@
+"""
+BIM Infra Solutions — Custom CRM (Flask Web App)
+Run: python app.py
+Open: http://localhost:5000
+"""
+import os
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+import database as db
+from zoho_mail import mail_client, SEQUENCE_SCHEDULE
+
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "bim-infra-crm-2025")
+
+# ── LOGIN SETUP ────────────────────────────────────────────────────────────────
+
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+login_manager.login_message = "Please log in to access the CRM."
+login_manager.login_message_category = "warning"
+
+# Multi-user table — add/remove users here
+# All default to password: Bim@2025  (change per-user in .env or regenerate hash)
+CRM_USERS = {
+    "kishan": {
+        "id": "1",
+        "display": "Kishan",
+        "hash": os.getenv("CRM_HASH_KISHAN",
+            "scrypt:32768:8:1$DPjW6lPlfNm2wDBp$5740c2e521ec2a8d728ab9ec15cc626ce78e9b104d9705a3a4e0f07ee05f56f155729fe213e76434d0fc491fea364a5a780fb571516a683f585d4a0be4a737d6"),
+    },
+    "hirakraj": {
+        "id": "2",
+        "display": "Hirakraj",
+        "hash": os.getenv("CRM_HASH_HIRAKRAJ",
+            "scrypt:32768:8:1$tA35OeKwmVXp9icD$ed300560f7ec1439a40377ceec8c09b79cf1cea262a8d990fdb208768c4ac45bf937477c6f351744794d956257a53a9655c6a297f0ecff958568ae524a00abc2"),
+    },
+    "tirth": {
+        "id": "3",
+        "display": "Tirth",
+        "hash": os.getenv("CRM_HASH_TIRTH",
+            "scrypt:32768:8:1$YWy1VzOHFotCk5Zc$29c869fd5761b1a5006d3e5e3067b0ac1d9f914c4613f9274c0bd8188d32e3fcde1b6935b3fe9e078e52861569a05062ca1fc34967f95d18f2e403671a89121c"),
+    },
+    "jenish": {
+        "id": "4",
+        "display": "Jenish",
+        "hash": os.getenv("CRM_HASH_JENISH",
+            "scrypt:32768:8:1$U6YIKHykWKLffUN8$e15fb6578f7e96048a410d43a4a9a5a6b3b2570a1d549f3ac98b653cc04695b67aa724349cd4167c055b791071e4601244b7e3ac6c7afde83374680e6c7996ba"),
+    },
+}
+
+# Reverse lookup by user ID
+_ID_TO_USER = {v["id"]: (k, v) for k, v in CRM_USERS.items()}
+
+
+class CRMUser(UserMixin):
+    def __init__(self, uid, username, display):
+        self.id       = uid
+        self.username = username
+        self.display  = display
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    entry = _ID_TO_USER.get(user_id)
+    if entry:
+        username, info = entry
+        return CRMUser(info["id"], username, info["display"])
+    return None
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "")
+        info = CRM_USERS.get(username)
+        if info and check_password_hash(info["hash"], password):
+            user = CRMUser(info["id"], username, info["display"])
+            login_user(user, remember=request.form.get("remember") == "on")
+            next_page = request.args.get("next")
+            return redirect(next_page or url_for("dashboard"))
+        flash("Invalid username or password.", "danger")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for("login"))
+
+
+@app.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_pw  = request.form.get("current_password", "")
+        new_pw      = request.form.get("new_password", "")
+        confirm_pw  = request.form.get("confirm_password", "")
+
+        username = current_user.username
+        info     = CRM_USERS.get(username)
+
+        # Validate current password
+        if not check_password_hash(info["hash"], current_pw):
+            flash("Current password is incorrect.", "danger")
+            return render_template("change_password.html")
+
+        if len(new_pw) < 6:
+            flash("New password must be at least 6 characters.", "danger")
+            return render_template("change_password.html")
+
+        if new_pw != confirm_pw:
+            flash("New passwords do not match.", "danger")
+            return render_template("change_password.html")
+
+        # Generate new hash
+        new_hash = generate_password_hash(new_pw)
+
+        # Update in-memory
+        CRM_USERS[username]["hash"] = new_hash
+        # Rebuild reverse lookup
+        global _ID_TO_USER
+        _ID_TO_USER = {v["id"]: (k, v) for k, v in CRM_USERS.items()}
+
+        # Persist to .env so it survives restart
+        env_key  = f"CRM_HASH_{username.upper()}"
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        _update_env(env_path, env_key, new_hash)
+
+        flash("Password changed successfully!", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("change_password.html")
+
+
+def _update_env(env_path: str, key: str, value: str):
+    """Write or update a key=value line in the .env file."""
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    else:
+        lines = []
+
+    found = False
+    new_lines = []
+    for line in lines:
+        if line.startswith(f"{key}="):
+            new_lines.append(f"{key}={value}\n")
+            found = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        # Add a blank line before if file doesn't end with one
+        if new_lines and not new_lines[-1].endswith("\n"):
+            new_lines.append("\n")
+        new_lines.append(f"{key}={value}\n")
+
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+# ──────────────────────────────────────────────────────────────────────────────
+
+db.init_db()
+
+
+# ── AUTH GUARD — protect every route except login ─────────────────────────────
+
+@app.before_request
+def require_login():
+    public = {"login", "static"}
+    if request.endpoint and request.endpoint not in public and not current_user.is_authenticated:
+        return redirect(url_for("login", next=request.url))
+
+
+# ── DASHBOARD ──────────────────────────────────────────────────────────────────
+
+@app.route("/")
+def dashboard():
+    stats = db.get_stats()
+    tasks = db.get_tasks(status="Not Started")
+    return render_template("dashboard.html", stats=stats, tasks=tasks, now=datetime.now())
+
+
+# ── LEADS LIST ─────────────────────────────────────────────────────────────────
+
+@app.route("/leads")
+def leads():
+    search   = request.args.get("search", "")
+    status   = request.args.get("status", "")
+    country  = request.args.get("country", "")
+    template = request.args.get("template", "")
+    all_leads = db.get_all_leads(
+        search=search or None,
+        status=status or None,
+        country=country or None,
+        template=template or None,
+    )
+    return render_template("leads.html", leads=all_leads,
+                           search=search, status=status,
+                           country=country, template=template)
+
+
+# ── ADD LEAD ───────────────────────────────────────────────────────────────────
+
+@app.route("/leads/new", methods=["GET", "POST"])
+def new_lead():
+    if request.method == "POST":
+        data = _form_to_lead(request.form)
+        data["status"] = "New"
+        try:
+            lead_id = db.create_lead(data)
+            flash("Lead created successfully!", "success")
+            return redirect(url_for("lead_detail", lead_id=lead_id))
+        except Exception as e:
+            flash(f"Error creating lead: {str(e)}", "danger")
+    return render_template("lead_form.html", lead=None, action="New")
+
+
+# ── LEAD DETAIL ────────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>")
+def lead_detail(lead_id):
+    lead = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
+
+    email_logs = db.get_email_logs(lead_id)
+    tasks      = db.get_tasks(lead_id=lead_id)
+
+    template  = lead.get("email_template", "A")
+    step      = lead.get("email_sequence_step", 0)
+    days      = SEQUENCE_SCHEDULE.get(template, [0, 4, 9])
+
+    can_send_next  = False
+    next_send_date = None
+
+    if step < 3:
+        if step == 0:
+            can_send_next = True
+        elif lead.get("last_email_sent"):
+            last_sent    = datetime.fromisoformat(str(lead["last_email_sent"]))
+            days_since   = (datetime.utcnow() - last_sent).days
+            required     = days[step] - days[step - 1]
+            can_send_next = days_since >= required
+            if not can_send_next:
+                next_send_date = (last_sent + timedelta(days=required)).strftime("%b %d, %Y")
+
+    return render_template("lead_detail.html",
+                           lead=lead,
+                           email_logs=email_logs,
+                           tasks=tasks,
+                           can_send_next=can_send_next,
+                           next_send_date=next_send_date,
+                           sequence_step=step)
+
+
+# ── EDIT LEAD ──────────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
+def edit_lead(lead_id):
+    lead = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
+
+    if request.method == "POST":
+        data = _form_to_lead(request.form)
+        data["status"] = request.form.get("status", lead["status"])
+        db.update_lead(lead_id, data)
+        flash("Lead updated!", "success")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    return render_template("lead_form.html", lead=lead, action="Edit")
+
+
+# ── DELETE LEAD ────────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/delete", methods=["POST"])
+def delete_lead(lead_id):
+    db.delete_lead(lead_id)
+    flash("Lead deleted.", "info")
+    return redirect(url_for("leads"))
+
+
+# ── UPDATE STATUS ──────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/status", methods=["POST"])
+def update_status(lead_id):
+    status = request.form.get("status", "New")
+    db.update_lead_status(lead_id, status)
+    flash(f"Status updated to {status}.", "success")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+# ── SEND EMAIL ─────────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/send-email", methods=["POST"])
+def send_email(lead_id):
+    lead = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
+
+    step = lead.get("email_sequence_step", 0)
+    if step >= 3:
+        flash("All 3 sequence emails already sent for this lead.", "warning")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    try:
+        success, subject, body = mail_client.send_sequence_email(lead, step)
+    except Exception as e:
+        err = str(e)
+        if "invalid_code" in err or "invalid_token" in err:
+            flash("Zoho token expired — run get_token.py to refresh your credentials, then restart the app.", "danger")
+        else:
+            flash(f"Email error: {err}", "danger")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    if success:
+        db.log_email(lead_id, subject, body, lead.get("email_template", "A"), step)
+        db.advance_sequence_step(lead_id)
+        if lead.get("status") == "New":
+            db.update_lead_status(lead_id, "Contacted")
+        flash(f"Email {step + 1}/3 sent to {lead['email']}!", "success")
+    else:
+        flash("Email failed. Run get_token.py to refresh Zoho credentials.", "danger")
+
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+# ── MARK EMAIL OPENED ──────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/mark-opened", methods=["POST"])
+def mark_opened(lead_id):
+    email_log_id = int(request.form.get("email_log_id", 0))
+    db.mark_email_opened(email_log_id)
+
+    # Check if lead qualifies as hot (2+ opens)
+    lead = db.get_lead(lead_id)
+    logs = db.get_email_logs(lead_id)
+    total_opens = sum(l.get("open_count", 0) for l in logs)
+
+    if total_opens >= 2 and lead.get("status") != "Hot":
+        db.update_lead_status(lead_id, "Hot", "Immediate Follow-up")
+        db.create_task(
+            lead_id,
+            f"HOT LEAD — Call {lead['first_name']} {lead.get('last_name', '')} ASAP",
+            (datetime.utcnow() + timedelta(hours=2)).isoformat(),
+            priority="High",
+            description="Auto-generated: 2+ email opens detected.",
+        )
+        flash("Lead marked HOT — urgent task created!", "warning")
+    else:
+        flash("Email marked as opened.", "success")
+
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+# ── MARK EMAIL CLICKED ─────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/mark-bounced", methods=["POST"])
+def mark_bounced(lead_id):
+    email_log_id = int(request.form.get("email_log_id", 0))
+    reason       = request.form.get("reason", "Email bounced / address not found")
+    db.mark_email_bounced(email_log_id, reason)
+
+    lead = db.get_lead(lead_id)
+    # Rewind sequence step so next email can be retried with corrected address
+    db.update_lead(lead_id, {"email_sequence_step": max(0, lead.get("email_sequence_step", 1) - 1)})
+    db.update_lead_status(lead_id, "Invalid")
+    flash(
+        f"Email marked as FAILED/BOUNCED for {lead['email']}. "
+        f"Update the email address and resend. Status set to Invalid.",
+        "warning",
+    )
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/leads/<int:lead_id>/mark-clicked", methods=["POST"])
+def mark_clicked(lead_id):
+    email_log_id = int(request.form.get("email_log_id", 0))
+    db.mark_email_clicked(email_log_id)
+
+    lead = db.get_lead(lead_id)
+    if lead.get("status") not in ("Hot", "Engaged"):
+        db.update_lead_status(lead_id, "Hot", "Link Clicked — Follow Up")
+        db.create_task(
+            lead_id,
+            f"HOT LEAD (link clicked) — Follow up with {lead['first_name']} within 2 hours",
+            (datetime.utcnow() + timedelta(hours=2)).isoformat(),
+            priority="High",
+        )
+        flash("Lead marked HOT — link click detected!", "warning")
+    else:
+        flash("Email marked as clicked.", "success")
+
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+# ── TASKS ──────────────────────────────────────────────────────────────────────
+
+@app.route("/leads/<int:lead_id>/task", methods=["POST"])
+def create_task(lead_id):
+    subject     = request.form.get("subject", "")
+    due_date    = request.form.get("due_date", "")
+    priority    = request.form.get("priority", "Medium")
+    description = request.form.get("description", "")
+    if subject:
+        db.create_task(lead_id, subject, due_date, priority, description)
+        flash("Task created!", "success")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/tasks/<int:task_id>/complete", methods=["POST"])
+def complete_task(task_id):
+    db.complete_task(task_id)
+    flash("Task marked complete.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+# ── BULK SEND EMAILS ──────────────────────────────────────────────────────────
+
+@app.route("/leads/send-all", methods=["POST"])
+def send_all_emails():
+    all_leads = db.get_all_leads()
+    sent    = 0
+    skipped = 0
+
+    for lead in all_leads:
+        step   = lead.get("email_sequence_step", 0)
+        status = lead.get("status", "")
+
+        # Skip leads that finished sequence or unsubscribed/invalid
+        if step >= 3 or status in ("Unsubscribed", "Invalid"):
+            skipped += 1
+            continue
+
+        # Check sequence timing
+        if step > 0 and lead.get("last_email_sent"):
+            template = lead.get("email_template", "A")
+            days     = SEQUENCE_SCHEDULE.get(template, [0, 4, 9])
+            last_sent    = datetime.fromisoformat(str(lead["last_email_sent"]))
+            days_since   = (datetime.utcnow() - last_sent).days
+            required     = days[step] - days[step - 1]
+            if days_since < required:
+                skipped += 1
+                continue
+
+        # Send the email
+        success, subject, body = mail_client.send_sequence_email(lead, step)
+        if success:
+            db.log_email(lead["id"], subject, body, lead.get("email_template", "A"), step)
+            db.advance_sequence_step(lead["id"])
+            if lead.get("status") == "New":
+                db.update_lead_status(lead["id"], "Contacted")
+            sent += 1
+        else:
+            skipped += 1
+
+    flash(f"Bulk send complete: {sent} email(s) sent, {skipped} skipped.", "success")
+    return redirect(url_for("leads"))
+
+
+# ── IMPORT FROM GOOGLE SHEET ──────────────────────────────────────────────────
+
+@app.route("/leads/import-sheet", methods=["GET", "POST"])
+def import_from_sheet():
+    if request.method == "POST":
+        import csv, io, requests as req
+        sheet_id = request.form.get("sheet_id", "1buAYF8WykRsNToMw8UjAHct_EOX8TyH8")
+        template = request.form.get("template", "D")
+        try:
+            r       = req.get(f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv", timeout=15)
+            content = r.content.decode("utf-8", errors="replace")
+            rows    = list(csv.reader(io.StringIO(content)))
+            imported, skipped = 0, 0
+            for row in rows[3:]:
+                if not row or not row[0].strip() or not row[0].strip().isdigit():
+                    continue
+                email   = row[6].strip() if len(row) > 6 else ""
+                company = row[1].strip() if len(row) > 1 else ""
+                name    = row[3].strip() if len(row) > 3 else ""
+                parts   = name.split() if name else []
+                if not email or email.lower() in ("", "nan"):
+                    skipped += 1
+                    continue
+                cls      = row[2].strip() if len(row) > 2 else ""
+                priority = 90 if cls == "A+" else 75 if cls == "A" else 60 if cls == "B" else 45
+                data = {
+                    "first_name"            : parts[0] if parts else company.split()[0],
+                    "last_name"             : " ".join(parts[1:]) if len(parts) > 1 else "",
+                    "email"                 : email,
+                    "company"               : company,
+                    "title"                 : row[4].strip() if len(row) > 4 else "",
+                    "phone"                 : row[5].strip() if len(row) > 5 else "",
+                    "website"               : row[9].strip() if len(row) > 9 else "",
+                    "city"                  : row[8].strip() if len(row) > 8 else "",
+                    "country"               : "India",
+                    "industry"              : "Geospatial / Drone / Survey",
+                    "status"                : "New",
+                    "priority_score"        : priority,
+                    "services_needed"       : row[10].strip() if len(row) > 10 else "",
+                    "outsourcing_likelihood": "High" if cls in ("A+", "A") else "Medium",
+                    "pitch_angle"           : "INFRA X Drone Progress Monitoring",
+                    "email_template"        : template,
+                    "linkedin_url"          : "",
+                    "follow_up_stage"       : "",
+                    "description"           : f"Survey of India Empanelled — Class {cls}",
+                }
+                try:
+                    db.create_lead(data)
+                    imported += 1
+                except Exception:
+                    skipped += 1
+            flash(f"Sheet import complete: {imported} imported, {skipped} skipped.", "success")
+        except Exception as e:
+            flash(f"Import failed: {str(e)}", "danger")
+        return redirect(url_for("leads"))
+    return render_template("import_sheet.html")
+
+
+# ── PIPELINE (KANBAN) ─────────────────────────────────────────────────────────
+
+@app.route("/pipeline")
+def pipeline():
+    all_leads = db.get_all_leads()
+    stages = ["New", "Contacted", "Warm", "Hot", "Engaged", "Cold", "Unsubscribed", "Invalid"]
+    stage_colors = {
+        "New":          "#1B3A6B",
+        "Contacted":    "#1565c0",
+        "Warm":         "#e65100",
+        "Hot":          "#b71c1c",
+        "Engaged":      "#4a148c",
+        "Cold":         "#283593",
+        "Unsubscribed": "#616161",
+        "Invalid":      "#c62828",
+    }
+    columns = {}
+    totals  = {}
+    for s in stages:
+        cols_leads = [l for l in all_leads if l["status"] == s]
+        columns[s] = cols_leads
+        totals[s]  = len(cols_leads)
+    return render_template("pipeline.html",
+                           stages=stages,
+                           columns=columns,
+                           totals=totals,
+                           stage_colors=stage_colors)
+
+
+@app.route("/leads/<int:lead_id>/move-stage", methods=["POST"])
+def move_stage(lead_id):
+    new_status = request.form.get("status", "New")
+    db.update_lead_status(lead_id, new_status)
+    return ("", 204)
+
+
+# ── REPLIES INBOX ─────────────────────────────────────────────────────────────
+
+@app.route("/replies")
+def replies():
+    priority = request.args.get("priority", "")
+    all_replies = db.get_replies(priority=priority or None, status=None)
+    counts      = db.reply_counts()
+    return render_template("replies.html",
+                           replies=all_replies,
+                           counts=counts,
+                           active_priority=priority)
+
+
+@app.route("/replies/sync-delivery")
+def sync_delivery():
+    """Scan Zoho inbox for bounces, OOO, and replies. Auto-mark leads."""
+    all_leads  = db.get_all_leads()
+    lead_map   = {l["email"].lower(): l for l in all_leads}
+    lead_emails = list(lead_map.keys())
+
+    try:
+        status = mail_client.fetch_delivery_status(lead_emails)
+    except Exception as e:
+        flash(f"Zoho scan failed: {e}", "danger")
+        return redirect(url_for("replies"))
+
+    bounced_count = 0
+    replied_count = 0
+    ooo_count     = 0
+
+    delayed_count = 0
+
+    # ── Handle bounces / delivery failures ───────────────────────────
+    for b in status.get("bounced", []):
+        email = b.get("email")
+        if not email:
+            continue
+        lead = lead_map.get(email)
+        if not lead:
+            continue
+
+        is_delayed   = b.get("is_delayed", False)
+        is_permanent = b.get("is_permanent", True)
+        reason       = b.get("reason", "Delivery failure")
+        raw_sender   = b.get("raw_sender", "")
+        subject_line = b.get("subject", "")
+
+        if is_delayed and not is_permanent:
+            # Temporary failure (421, 450) — log as warning, don't invalidate lead
+            db.add_reply(
+                lead_id    = lead["id"],
+                from_email = raw_sender,
+                subject    = f"⏳ DELAYED: {subject_line}",
+                body       = reason,
+                priority   = "Medium",
+                source     = "Zoho Auto-Sync",
+            )
+            delayed_count += 1
+        else:
+            # Permanent failure — mark email bounced, set lead Invalid
+            logs = db.get_email_logs(lead["id"])
+            if logs:
+                db.mark_email_bounced(logs[0]["id"], reason)
+            db.update_lead_status(lead["id"], "Invalid")
+            db.add_reply(
+                lead_id    = lead["id"],
+                from_email = raw_sender,
+                subject    = f"❌ BOUNCE: {subject_line}",
+                body       = reason,
+                priority   = "High",
+                source     = "Zoho Auto-Sync",
+            )
+            bounced_count += 1
+
+    # ── Handle real replies ───────────────────────────────────────────
+    for rp in status.get("replied", []):
+        lead = lead_map.get(rp["email"])
+        if not lead:
+            continue
+        score = lead.get("priority_score", 0)
+        auto_priority = "High" if score >= 80 else "Medium" if score >= 50 else "Low"
+        db.add_reply(
+            lead_id    = lead["id"],
+            from_email = rp["email"],
+            subject    = rp["subject"],
+            body       = rp["body"],
+            priority   = auto_priority,
+            source     = "Zoho Auto-Sync",
+        )
+        db.update_lead_status(lead["id"], "Engaged")
+        db.create_task(
+            lead["id"],
+            f"Reply received — respond to {lead['first_name']} within 1 hour",
+            (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+            priority="High",
+        )
+        replied_count += 1
+
+    # ── Handle OOO ────────────────────────────────────────────────────
+    for o in status.get("ooo", []):
+        lead = lead_map.get(o["email"])
+        if not lead:
+            continue
+        db.add_reply(
+            lead_id    = lead["id"],
+            from_email = o["email"],
+            subject    = f"OOO: {o['subject']}",
+            body       = "Out of office auto-reply received.",
+            priority   = "Low",
+            source     = "Zoho Auto-Sync",
+        )
+        db.update_lead_status(lead["id"], "Warm")
+        ooo_count += 1
+
+    total = bounced_count + delayed_count + replied_count + ooo_count
+    parts = []
+    if bounced_count:  parts.append(f"{bounced_count} hard bounce(s)")
+    if delayed_count:  parts.append(f"{delayed_count} delayed (temporary)")
+    if replied_count:  parts.append(f"{replied_count} reply(ies)")
+    if ooo_count:      parts.append(f"{ooo_count} out-of-office")
+    msg = "Zoho scan complete — " + (", ".join(parts) if parts else "nothing new found")
+    flash(msg, "success" if total > 0 else "info")
+    return redirect(url_for("replies"))
+
+
+@app.route("/replies/sync")
+def sync_replies():
+    """Pull replies from Zoho Mail inbox."""
+    all_leads   = db.get_all_leads()
+    lead_map    = {l["email"].lower(): l for l in all_leads}
+    lead_emails = list(lead_map.keys())
+
+    fetched = mail_client.fetch_inbox_replies(lead_emails)
+    added   = 0
+
+    for msg in fetched:
+        lead = lead_map.get(msg["from_email"].lower())
+        if lead:
+            # Auto-priority based on lead score
+            score = lead.get("priority_score", 0)
+            auto_priority = "High" if score >= 80 else "Medium" if score >= 50 else "Low"
+
+            db.add_reply(
+                lead_id    = lead["id"],
+                from_email = msg["from_email"],
+                subject    = msg["subject"],
+                body       = msg["body"],
+                priority   = auto_priority,
+                source     = "Zoho Mail Sync",
+            )
+            db.update_lead_status(lead["id"], "Engaged")
+            db.create_task(
+                lead["id"],
+                f"Reply received — respond to {lead['first_name']} within 1 hour",
+                (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                priority="High",
+            )
+            added += 1
+
+    flash(f"Sync complete: {added} new reply(ies) found.", "success" if added > 0 else "info")
+    return redirect(url_for("replies"))
+
+
+@app.route("/leads/<int:lead_id>/log-reply", methods=["POST"])
+def log_reply(lead_id):
+    lead     = db.get_lead(lead_id)
+    subject  = request.form.get("subject", "Reply from lead")
+    body     = request.form.get("body", "")
+    priority = request.form.get("priority", "Medium")
+
+    db.add_reply(lead_id, lead["email"], subject, body, priority, source="Manual")
+    db.update_lead_status(lead_id, "Engaged")
+    db.create_task(
+        lead_id,
+        f"Reply received — respond to {lead['first_name']} within 1 hour",
+        (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        priority="High",
+    )
+    flash(f"Reply logged as {priority} priority!", "success")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/replies/<int:reply_id>/priority", methods=["POST"])
+def update_reply_priority(reply_id):
+    priority = request.form.get("priority")
+    db.update_reply(reply_id, priority=priority)
+    return redirect(url_for("replies"))
+
+
+@app.route("/replies/<int:reply_id>/status", methods=["POST"])
+def update_reply_status(reply_id):
+    status = request.form.get("status")
+    db.update_reply(reply_id, status=status)
+    return redirect(request.referrer or url_for("replies"))
+
+
+@app.route("/replies/<int:reply_id>/delete", methods=["POST"])
+def delete_reply(reply_id):
+    db.delete_reply(reply_id)
+    flash("Reply deleted.", "info")
+    return redirect(url_for("replies"))
+
+
+# ── IMPORT FROM EXCEL ──────────────────────────────────────────────────────────
+
+@app.route("/leads/import", methods=["GET", "POST"])
+def import_leads():
+    if request.method == "POST":
+        file = request.files.get("excel_file")
+        if not file:
+            flash("No file selected.", "danger")
+            return redirect(url_for("import_leads"))
+        try:
+            from openpyxl import load_workbook
+            import io
+
+            wb   = load_workbook(io.BytesIO(file.read()))
+            # Try sheet named "Lead Database", fall back to first sheet
+            ws   = wb["Lead Database"] if "Lead Database" in wb.sheetnames else wb.active
+
+            # Read header row (row 2 = index 1, since header=1 in pandas)
+            rows     = list(ws.iter_rows(values_only=True))
+            # Find header row — first row that contains "Email"
+            hdr_idx  = 0
+            for i, r in enumerate(rows):
+                if r and any(str(c).strip().lower() == "email" for c in r if c):
+                    hdr_idx = i
+                    break
+            headers  = [str(c).strip() if c else "" for c in rows[hdr_idx]]
+
+            def col(row_vals, name):
+                try:
+                    idx = headers.index(name)
+                    v   = row_vals[idx]
+                    return str(v).strip() if v is not None else ""
+                except (ValueError, IndexError):
+                    return ""
+
+            imported, skipped = 0, 0
+
+            for row_vals in rows[hdr_idx + 1:]:
+                if not any(row_vals):
+                    continue
+                try:
+                    name  = col(row_vals, "Decision Maker") or "Unknown"
+                    parts = name.split()
+                    tmpl  = col(row_vals, "Email Template").split("—")[0].strip().replace("Template ", "")
+                    data  = {
+                        "first_name"            : parts[0] if parts else "Unknown",
+                        "last_name"             : " ".join(parts[1:]) if len(parts) > 1 else "",
+                        "email"                 : col(row_vals, "Email"),
+                        "company"               : col(row_vals, "Company Name"),
+                        "title"                 : col(row_vals, "Title"),
+                        "phone"                 : "",
+                        "website"               : col(row_vals, "Website"),
+                        "city"                  : col(row_vals, "City / State").split(",")[0].strip(),
+                        "country"               : col(row_vals, "Country") or "USA",
+                        "industry"              : col(row_vals, "Company Type"),
+                        "status"                : "New",
+                        "priority_score"        : int(col(row_vals, "Priority Score") or 0),
+                        "services_needed"       : col(row_vals, "Services Needed"),
+                        "outsourcing_likelihood": col(row_vals, "Outsourcing Likelihood"),
+                        "pitch_angle"           : col(row_vals, "Pitch Angle"),
+                        "email_template"        : tmpl if tmpl in ("A", "B", "C", "D") else "A",
+                        "linkedin_url"          : col(row_vals, "LinkedIn URL"),
+                        "follow_up_stage"       : "",
+                        "description"           : col(row_vals, "Pain Point"),
+                    }
+                    if not data["email"] or data["email"].lower() in ("nan", ""):
+                        skipped += 1
+                        continue
+                    db.create_lead(data)
+                    imported += 1
+                except Exception:
+                    skipped += 1
+
+            flash(f"Import complete: {imported} imported, {skipped} skipped.", "success")
+        except Exception as e:
+            flash(f"Import failed: {str(e)}", "danger")
+        return redirect(url_for("leads"))
+
+    return render_template("import.html")
+
+
+# ── SETTINGS ───────────────────────────────────────────────────────────────────
+
+@app.route("/settings")
+def settings():
+    cid  = os.getenv("ZOHO_CLIENT_ID", "NOT SET")
+    dc   = os.getenv("ZOHO_DC", "in")
+    acct = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "NOT SET")
+    hkey = os.getenv("HUNTER_API_KEY", "")
+    masked_cid  = cid[:10] + "..." if len(cid) > 10 else cid
+    masked_hkey = hkey[:8] + "..." if len(hkey) > 8 else ("" if not hkey else hkey)
+    return render_template("settings.html",
+                           zoho_client_id=masked_cid,
+                           zoho_dc=dc,
+                           zoho_account_id=acct,
+                           hunter_key=masked_hkey)
+
+
+@app.route("/test-connection")
+def test_connection():
+    result = mail_client.test_connection()
+    if result["ok"]:
+        flash(f"Zoho Mail connected! Found {result['accounts']} account(s). Token: {result['token']}", "success")
+    else:
+        flash(f"Connection failed: {result['error']}", "danger")
+    return redirect(url_for("settings"))
+
+
+# ── API ────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/stats")
+def api_stats():
+    return jsonify(db.get_stats())
+
+
+@app.route("/api/hunter/find/<int:lead_id>")
+def hunter_find(lead_id):
+    """Find email for a lead via Hunter.io Email Finder API."""
+    import requests as req
+    api_key = os.getenv("HUNTER_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+
+    lead = db.get_lead(lead_id)
+    if not lead:
+        return jsonify({"error": "Lead not found"}), 404
+
+    # Extract domain from website
+    website = lead.get("website", "")
+    domain  = website.replace("https://","").replace("http://","").replace("www.","").strip("/").split("/")[0]
+    if not domain:
+        return jsonify({"error": "No website/domain set for this lead"}), 400
+
+    first = lead.get("first_name", "")
+    last  = lead.get("last_name", "")
+
+    r = req.get("https://api.hunter.io/v2/email-finder", params={
+        "domain"    : domain,
+        "first_name": first,
+        "last_name" : last,
+        "api_key"   : api_key,
+    }, timeout=10)
+
+    data = r.json()
+    if r.status_code != 200 or "data" not in data:
+        return jsonify({"error": data.get("errors", [{"details": "Hunter API error"}])[0].get("details", "Unknown error")}), 400
+
+    result = data["data"]
+    return jsonify({
+        "email"      : result.get("email"),
+        "score"      : result.get("score"),
+        "sources"    : len(result.get("sources", [])),
+        "first_name" : first,
+        "last_name"  : last,
+        "domain"     : domain,
+    })
+
+
+@app.route("/api/hunter/verify")
+def hunter_verify():
+    """Verify an email address via Hunter.io."""
+    import requests as req
+    api_key = os.getenv("HUNTER_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+
+    email = request.args.get("email", "")
+    if not email:
+        return jsonify({"error": "No email provided"}), 400
+
+    r = req.get("https://api.hunter.io/v2/email-verifier", params={
+        "email"  : email,
+        "api_key": api_key,
+    }, timeout=15)
+
+    data = r.json()
+    if r.status_code != 200 or "data" not in data:
+        return jsonify({"error": "Verification failed"}), 400
+
+    result = data["data"]
+    return jsonify({
+        "email"    : result.get("email"),
+        "status"   : result.get("status"),       # valid / invalid / accept_all / unknown
+        "score"    : result.get("score"),
+        "regexp"   : result.get("regexp"),
+        "mx_records": result.get("mx_records"),
+        "smtp_server": result.get("smtp_server"),
+        "smtp_check": result.get("smtp_check"),
+    })
+
+
+@app.route("/api/hunter/domain/<int:lead_id>")
+def hunter_domain(lead_id):
+    """Search all emails for a company domain via Hunter.io."""
+    import requests as req
+    api_key = os.getenv("HUNTER_API_KEY", "")
+    if not api_key:
+        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+
+    lead   = db.get_lead(lead_id)
+    website = lead.get("website", "") if lead else ""
+    domain  = website.replace("https://","").replace("http://","").replace("www.","").strip("/").split("/")[0]
+    if not domain:
+        return jsonify({"error": "No website/domain set for this lead"}), 400
+
+    r = req.get("https://api.hunter.io/v2/domain-search", params={
+        "domain" : domain,
+        "api_key": api_key,
+        "limit"  : 10,
+    }, timeout=10)
+
+    data = r.json()
+    if r.status_code != 200 or "data" not in data:
+        return jsonify({"error": "Domain search failed"}), 400
+
+    result  = data["data"]
+    emails  = result.get("emails", [])
+    pattern = result.get("pattern", "")
+    return jsonify({
+        "domain"      : domain,
+        "pattern"     : pattern,
+        "total"       : result.get("total", 0),
+        "emails"      : [{"value": e.get("value"), "type": e.get("type"), "confidence": e.get("confidence"), "first_name": e.get("first_name"), "last_name": e.get("last_name"), "position": e.get("position")} for e in emails[:10]],
+    })
+
+
+@app.route("/leads/<int:lead_id>/update-email", methods=["POST"])
+def update_email(lead_id):
+    new_email = request.form.get("email", "").strip()
+    if new_email:
+        try:
+            db.update_lead(lead_id, {"email": new_email})
+            # Reset sequence step so email can be resent
+            db.update_lead(lead_id, {"email_sequence_step": 0})
+            db.update_lead_status(lead_id, "New")
+            flash(f"Email updated to {new_email}. Sequence reset — ready to send.", "success")
+        except Exception as e:
+            flash(f"Could not update email: {e}", "danger")
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/api/import-leads", methods=["POST"])
+def api_import_leads():
+    """Bulk import leads via JSON POST — runs inside Flask process to avoid DB lock."""
+    import json as _json
+    data = request.get_json(force=True)
+    leads_data = data.get("leads", [])
+    imported, skipped = 0, 0
+    for lead in leads_data:
+        lead.setdefault("phone", "")
+        lead.setdefault("follow_up_stage", "")
+        lead.setdefault("status", "New")
+        try:
+            db.create_lead(lead)
+            imported += 1
+        except Exception:
+            skipped += 1
+    return jsonify({"imported": imported, "skipped": skipped, "total": imported + skipped})
+
+
+# ── HELPERS ────────────────────────────────────────────────────────────────────
+
+def _form_to_lead(form) -> dict:
+    return {
+        "first_name"            : form.get("first_name", ""),
+        "last_name"             : form.get("last_name", ""),
+        "email"                 : form.get("email", ""),
+        "company"               : form.get("company", ""),
+        "title"                 : form.get("title", ""),
+        "phone"                 : form.get("phone", ""),
+        "website"               : form.get("website", ""),
+        "city"                  : form.get("city", ""),
+        "country"               : form.get("country", "USA"),
+        "industry"              : form.get("industry", ""),
+        "priority_score"        : int(form.get("priority_score", 0) or 0),
+        "services_needed"       : form.get("services_needed", ""),
+        "outsourcing_likelihood": form.get("outsourcing_likelihood", ""),
+        "pitch_angle"           : form.get("pitch_angle", ""),
+        "email_template"        : form.get("email_template", "A"),
+        "linkedin_url"          : form.get("linkedin_url", ""),
+        "follow_up_stage"       : "",
+        "description"           : form.get("description", ""),
+    }
+
+
+# ── ENTRY POINT ────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    print("\n" + "=" * 55)
+    print("  BIM Infra Solutions — Custom CRM")
+    print("=" * 55)
+    print("\n  Open your browser and go to:")
+    print("  http://localhost:5000")
+    print("\n  Press Ctrl+C to stop the server\n")
+    app.run(debug=True, host="0.0.0.0", port=5000)

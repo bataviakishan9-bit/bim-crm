@@ -1,0 +1,526 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4>
+      {% if lead.status == 'Hot' %}<span style="color:#b71c1c;">&#x1F525; </span>{% endif %}
+      {{ lead.first_name }} {{ lead.last_name }}
+      <span class="badge badge-{{ lead.status|lower }} ms-2" style="font-size:13px;padding:4px 10px;border-radius:20px;">
+        {{ lead.status }}
+      </span>
+    </h4>
+    <small class="text-muted">{{ lead.company }} · {{ lead.title }} · {{ lead.country }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/leads/{{ lead.id }}/edit" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pencil"></i> Edit
+    </a>
+    <form method="POST" action="/leads/{{ lead.id }}/delete"
+          onsubmit="return confirm('Delete this lead permanently?')">
+      <button class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+
+  <!-- LEFT COLUMN -->
+  <div class="col-md-4">
+
+    <!-- Contact Info -->
+    <div class="card mb-3">
+      <div class="card-header bg-white"><strong>Contact Info</strong></div>
+      <div class="card-body" style="font-size:13px;">
+        <div class="mb-2"><i class="bi bi-envelope text-muted me-2"></i>{{ lead.email }}</div>
+        {% if lead.phone %}<div class="mb-2"><i class="bi bi-telephone text-muted me-2"></i>{{ lead.phone }}</div>{% endif %}
+        {% if lead.website %}<div class="mb-2"><i class="bi bi-globe text-muted me-2"></i>
+          <a href="{{ lead.website }}" target="_blank">{{ lead.website }}</a></div>{% endif %}
+        {% if lead.linkedin_url %}<div class="mb-2"><i class="bi bi-linkedin text-muted me-2"></i>
+          <a href="{{ lead.linkedin_url }}" target="_blank">LinkedIn Profile</a></div>{% endif %}
+        {% if lead.city or lead.country %}<div class="mb-2"><i class="bi bi-geo-alt text-muted me-2"></i>
+          {{ lead.city }}{% if lead.city and lead.country %}, {% endif %}{{ lead.country }}</div>{% endif %}
+        {% if lead.industry %}<div class="mb-2"><i class="bi bi-building text-muted me-2"></i>{{ lead.industry }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- BIM Profile -->
+    <div class="card mb-3">
+      <div class="card-header bg-white"><strong>BIM Profile</strong></div>
+      <div class="card-body" style="font-size:13px;">
+        <div class="mb-2">
+          <span class="text-muted">Priority Score:</span>
+          <span class="badge ms-1" style="background:
+            {% if lead.priority_score >= 80 %}#b71c1c
+            {% elif lead.priority_score >= 60 %}#e65100
+            {% else %}#1B3A6B{% endif %};color:#fff;">
+            {{ lead.priority_score }}
+          </span>
+        </div>
+        {% if lead.services_needed %}<div class="mb-2"><span class="text-muted">Services:</span> {{ lead.services_needed }}</div>{% endif %}
+        {% if lead.outsourcing_likelihood %}<div class="mb-2"><span class="text-muted">Likelihood:</span> {{ lead.outsourcing_likelihood }}</div>{% endif %}
+        {% if lead.pitch_angle %}<div class="mb-2"><span class="text-muted">Pitch:</span> {{ lead.pitch_angle }}</div>{% endif %}
+        {% if lead.follow_up_stage %}<div class="mb-2"><span class="text-muted">Stage:</span> {{ lead.follow_up_stage }}</div>{% endif %}
+        {% if lead.description %}<div class="mb-0"><span class="text-muted">Pain Point:</span> {{ lead.description }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Update Status -->
+    <div class="card mb-3">
+      <div class="card-header bg-white"><strong>Update Status</strong></div>
+      <div class="card-body">
+        <form method="POST" action="/leads/{{ lead.id }}/status">
+          <select name="status" class="form-select form-select-sm mb-2">
+            {% for s in ['New','Contacted','Hot','Warm','Engaged','Cold','Unsubscribed','Invalid'] %}
+            <option {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-bim btn-sm w-100">Update Status</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="col-md-8">
+
+    <!-- Email Sequence -->
+    <div class="card mb-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Email Sequence — Template {{ lead.email_template }}</strong>
+        <div class="d-flex align-items-center">
+          {% for i in range(3) %}
+            {% if i < sequence_step %}
+              <span class="seq-step seq-done">{{ i+1 }}</span>
+            {% elif i == sequence_step %}
+              <span class="seq-step seq-current">{{ i+1 }}</span>
+            {% else %}
+              <span class="seq-step seq-pending">{{ i+1 }}</span>
+            {% endif %}
+            {% if i < 2 %}
+              <span class="seq-line {% if i < sequence_step %}seq-line-done{% else %}seq-line-pending{% endif %}"></span>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card-body">
+        {% if sequence_step < 3 %}
+          {% if can_send_next %}
+          <form method="POST" action="/leads/{{ lead.id }}/send-email">
+            <button class="btn btn-bim">
+              <i class="bi bi-send me-1"></i> Send Email {{ sequence_step + 1 }}/3 Now
+            </button>
+          </form>
+          {% else %}
+          <div class="alert alert-info mb-0 py-2" style="font-size:13px;">
+            <i class="bi bi-clock me-1"></i>
+            Next email ready on <strong>{{ next_send_date }}</strong> (sequence timing enforced)
+          </div>
+          {% endif %}
+        {% else %}
+        <div class="alert alert-success mb-0 py-2" style="font-size:13px;">
+          <i class="bi bi-check-circle me-1"></i> All 3 sequence emails have been sent.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Email History -->
+    <div class="card mb-3">
+      <div class="card-header bg-white"><strong>Email History</strong></div>
+      {% if email_logs %}
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th class="ps-3">Subject</th>
+              <th>Sent</th>
+              <th>Status</th>
+              <th>Opened</th>
+              <th>Clicked</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in email_logs %}
+            <tr {% if log.bounced %}style="background:#fff8f8;"{% endif %}>
+              <td class="ps-3" style="font-size:13px;">
+                {{ log.subject }}
+                {% if log.bounced %}
+                  <span class="badge ms-1" style="background:#c62828;color:#fff;font-size:10px;">BOUNCED</span>
+                {% endif %}
+              </td>
+              <td style="font-size:12px;color:#888;">{{ log.sent_at[:16] }}</td>
+              <td>
+                {% if log.bounced %}
+                  <span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">
+                    <i class="bi bi-x-circle me-1"></i>Failed
+                  </span>
+                  {% if log.bounce_reason %}
+                    <div style="font-size:10px;color:#c62828;margin-top:2px;">{{ log.bounce_reason }}</div>
+                  {% endif %}
+                {% else %}
+                  <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:11px;">
+                    <i class="bi bi-check me-1"></i>Sent
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if log.opened %}
+                  <span class="badge bg-success" style="font-size:11px;">{{ log.open_count }}x</span>
+                {% else %}
+                  <span class="text-muted" style="font-size:12px;">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if log.clicked %}
+                  <span class="badge bg-primary" style="font-size:11px;">Yes</span>
+                {% else %}
+                  <span class="text-muted" style="font-size:12px;">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if not log.bounced %}
+                <div class="d-flex gap-1 flex-wrap">
+                  {% if not log.opened %}
+                  <form method="POST" action="/leads/{{ lead.id }}/mark-opened">
+                    <input type="hidden" name="email_log_id" value="{{ log.id }}">
+                    <button class="btn btn-outline-success" style="font-size:11px;padding:1px 6px;">Opened</button>
+                  </form>
+                  {% endif %}
+                  {% if not log.clicked %}
+                  <form method="POST" action="/leads/{{ lead.id }}/mark-clicked">
+                    <input type="hidden" name="email_log_id" value="{{ log.id }}">
+                    <button class="btn btn-outline-primary" style="font-size:11px;padding:1px 6px;">Clicked</button>
+                  </form>
+                  {% endif %}
+                  <!-- Mark as bounced/failed -->
+                  <button class="btn btn-outline-danger" style="font-size:11px;padding:1px 6px;"
+                          data-bs-toggle="modal" data-bs-target="#bounceModal{{ log.id }}">
+                    <i class="bi bi-x-circle"></i> Failed
+                  </button>
+                </div>
+
+                <!-- Bounce Modal -->
+                <div class="modal fade" id="bounceModal{{ log.id }}" tabindex="-1">
+                  <div class="modal-dialog modal-sm">
+                    <div class="modal-content">
+                      <div class="modal-header py-2">
+                        <h6 class="modal-title">Mark Email as Failed</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                      </div>
+                      <form method="POST" action="/leads/{{ lead.id }}/mark-bounced">
+                        <div class="modal-body py-2">
+                          <input type="hidden" name="email_log_id" value="{{ log.id }}">
+                          <label class="form-label" style="font-size:12px;">Reason (optional)</label>
+                          <select name="reason" class="form-select form-select-sm">
+                            <option value="Address not found / bounced">Address not found / bounced</option>
+                            <option value="Undeliverable — mailbox full">Undeliverable — mailbox full</option>
+                            <option value="Invalid email address">Invalid email address</option>
+                            <option value="Domain does not exist">Domain does not exist</option>
+                            <option value="Marked as spam">Marked as spam</option>
+                            <option value="Manual — could not deliver">Manual — could not deliver</option>
+                          </select>
+                          <div class="mt-2" style="font-size:11px;color:#888;">
+                            This will rewind the email sequence so you can resend after correcting the address.
+                          </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                          <button type="submit" class="btn btn-danger btn-sm">Mark Failed</button>
+                          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                {% else %}
+                  <span style="font-size:11px;color:#c62828;"><i class="bi bi-exclamation-triangle"></i> Update email &amp; resend</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted text-center py-3" style="font-size:13px;">No emails sent yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- Hunter.io Email Finder -->
+    <div class="card mb-3" id="hunterCard">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-search me-1" style="color:#e65100;"></i> Hunter.io — Find & Verify Email</strong>
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#hunterPanel">
+          <i class="bi bi-chevron-down"></i>
+        </button>
+      </div>
+      <div class="collapse" id="hunterPanel">
+        <div class="card-body" style="font-size:13px;">
+
+          <!-- Current email + verify -->
+          <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <span class="text-muted">Current:</span>
+            <strong>{{ lead.email }}</strong>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:12px;"
+                    onclick="verifyEmail('{{ lead.email }}', 'verifyResult')">
+              <i class="bi bi-patch-check"></i> Verify
+            </button>
+            <span id="verifyResult"></span>
+          </div>
+
+          <!-- Find by name + domain -->
+          <div class="row g-2 mb-3">
+            <div class="col-12">
+              <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-bim" onclick="findEmail({{ lead.id }})">
+                  <i class="bi bi-search me-1"></i> Find Email for {{ lead.first_name }} {{ lead.last_name }}
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="domainSearch({{ lead.id }})">
+                  <i class="bi bi-building me-1"></i> All Emails at {{ lead.website or lead.company }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Results -->
+          <div id="hunterResult" style="display:none;" class="mt-2">
+            <div id="hunterResultBody"></div>
+          </div>
+
+          <!-- Update email form -->
+          <div id="updateEmailForm" style="display:none;" class="mt-3 p-2 bg-light rounded">
+            <form method="POST" action="/leads/{{ lead.id }}/update-email" class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="email" name="email" id="newEmailInput" class="form-control form-control-sm" style="max-width:280px;" placeholder="New email address" required>
+              <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Update & Reset Sequence</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('updateEmailForm').style.display='none'">Cancel</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Reply -->
+    <div class="card mb-3">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Log a Reply</strong>
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#logReplyForm">
+          <i class="bi bi-plus"></i> Log Reply
+        </button>
+      </div>
+      <div class="collapse" id="logReplyForm">
+        <div class="card-body border-bottom bg-light py-2">
+          <form method="POST" action="/leads/{{ lead.id }}/log-reply">
+            <div class="row g-2">
+              <div class="col-md-5">
+                <input type="text" name="subject" class="form-control form-control-sm"
+                       placeholder="Reply subject" required>
+              </div>
+              <div class="col-md-3">
+                <select name="priority" class="form-select form-select-sm">
+                  <option value="High">High Priority</option>
+                  <option value="Medium" selected>Medium Priority</option>
+                  <option value="Low">Low Priority</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <button class="btn btn-bim btn-sm w-100">Log Reply</button>
+              </div>
+              <div class="col-12">
+                <textarea name="body" class="form-control form-control-sm" rows="2"
+                          placeholder="Paste reply content here (optional)..."></textarea>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="card">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong>Tasks</strong>
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#addTask">
+          <i class="bi bi-plus"></i> Add Task
+        </button>
+      </div>
+
+      <div class="collapse" id="addTask">
+        <div class="card-body border-bottom bg-light py-2">
+          <form method="POST" action="/leads/{{ lead.id }}/task">
+            <div class="row g-2">
+              <div class="col-md-5">
+                <input type="text" name="subject" class="form-control form-control-sm" placeholder="Task subject" required>
+              </div>
+              <div class="col-md-3">
+                <input type="datetime-local" name="due_date" class="form-control form-control-sm">
+              </div>
+              <div class="col-md-2">
+                <select name="priority" class="form-select form-select-sm">
+                  <option>High</option>
+                  <option selected>Medium</option>
+                  <option>Low</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button class="btn btn-bim btn-sm w-100">Add</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if tasks %}
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th class="ps-3">Task</th>
+              <th>Due</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+            <tr {% if task.status == 'Completed' %}style="opacity:0.45;"{% endif %}>
+              <td class="ps-3" style="font-size:13px;">{{ task.subject }}</td>
+              <td style="font-size:12px;color:#888;">{{ task.due_date[:16] if task.due_date else '—' }}</td>
+              <td>
+                <span class="badge" style="font-size:11px;background:
+                  {% if task.priority == 'High' %}#b71c1c
+                  {% elif task.priority == 'Medium' %}#e65100
+                  {% else %}#1B3A6B{% endif %};color:#fff;">
+                  {{ task.priority }}
+                </span>
+              </td>
+              <td style="font-size:12px;">{{ task.status }}</td>
+              <td>
+                {% if task.status != 'Completed' %}
+                <form method="POST" action="/tasks/{{ task.id }}/complete">
+                  <button class="btn btn-outline-success" style="font-size:11px;padding:1px 7px;">Done</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted text-center py-3" style="font-size:13px;">No tasks yet.</div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+<script>
+function statusBadge(status, score) {
+  const colors = {
+    'valid'     : 'background:#e8f5e9;color:#2e7d32;',
+    'invalid'   : 'background:#ffebee;color:#c62828;',
+    'accept_all': 'background:#fff8e1;color:#e65100;',
+    'unknown'   : 'background:#f5f5f5;color:#666;',
+  };
+  const style = colors[status] || colors['unknown'];
+  return `<span class="badge" style="${style}font-size:11px;">${status} (${score}%)</span>`;
+}
+
+function verifyEmail(email, targetId) {
+  const el = document.getElementById(targetId);
+  el.innerHTML = '<span class="text-muted" style="font-size:11px;">Checking...</span>';
+  fetch(`/api/hunter/verify?email=${encodeURIComponent(email)}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { el.innerHTML = `<span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">${d.error}</span>`; return; }
+      el.innerHTML = statusBadge(d.status, d.score);
+    })
+    .catch(() => { el.innerHTML = '<span style="color:red;font-size:11px;">Failed</span>'; });
+}
+
+function findEmail(leadId) {
+  const box  = document.getElementById('hunterResult');
+  const body = document.getElementById('hunterResultBody');
+  box.style.display = 'block';
+  body.innerHTML = '<div class="text-muted" style="font-size:12px;"><i class="bi bi-hourglass-split me-1"></i>Searching Hunter.io...</div>';
+  fetch(`/api/hunter/find/${leadId}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) {
+        body.innerHTML = `<div class="alert alert-warning py-2 mb-0" style="font-size:12px;"><i class="bi bi-exclamation-triangle me-1"></i>${d.error}</div>`;
+        return;
+      }
+      const score = d.score >= 70 ? '#2e7d32' : d.score >= 40 ? '#e65100' : '#c62828';
+      body.innerHTML = `
+        <div class="p-2 rounded" style="background:#f0f7ff;border:1px solid #bbdefb;">
+          <div style="font-size:13px;font-weight:700;color:#1B3A6B;">${d.email}</div>
+          <div style="font-size:11px;color:#666;margin-top:2px;">
+            Confidence: <span style="color:${score};font-weight:700;">${d.score}%</span>
+            &nbsp;|&nbsp; Sources: ${d.sources}
+            &nbsp;|&nbsp; Domain: ${d.domain}
+          </div>
+          <div class="mt-2 d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-success" style="font-size:11px;"
+                    onclick="useEmail('${d.email}')">
+              <i class="bi bi-check-lg"></i> Use this email
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:11px;"
+                    onclick="verifyEmail('${d.email}', 'foundVerify')">
+              <i class="bi bi-patch-check"></i> Verify
+            </button>
+            <span id="foundVerify"></span>
+          </div>
+        </div>`;
+    })
+    .catch(() => { body.innerHTML = '<span style="color:red;font-size:12px;">Request failed. Check your Hunter.io API key.</span>'; });
+}
+
+function domainSearch(leadId) {
+  const box  = document.getElementById('hunterResult');
+  const body = document.getElementById('hunterResultBody');
+  box.style.display = 'block';
+  body.innerHTML = '<div class="text-muted" style="font-size:12px;"><i class="bi bi-hourglass-split me-1"></i>Searching company domain...</div>';
+  fetch(`/api/hunter/domain/${leadId}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) {
+        body.innerHTML = `<div class="alert alert-warning py-2 mb-0" style="font-size:12px;">${d.error}</div>`;
+        return;
+      }
+      let rows = '';
+      d.emails.forEach(e => {
+        rows += `<tr>
+          <td style="font-size:12px;">${e.first_name || ''} ${e.last_name || ''}</td>
+          <td style="font-size:12px;"><strong>${e.value}</strong></td>
+          <td style="font-size:11px;color:#888;">${e.position || ''}</td>
+          <td><span class="badge" style="font-size:10px;background:#e8f5e9;color:#2e7d32;">${e.confidence}%</span></td>
+          <td>
+            <button class="btn btn-outline-success" style="font-size:10px;padding:1px 6px;"
+                    onclick="useEmail('${e.value}')">Use</button>
+          </td>
+        </tr>`;
+      });
+      body.innerHTML = `
+        <div style="font-size:12px;color:#888;margin-bottom:6px;">
+          Pattern: <strong>${d.pattern || 'unknown'}</strong> &nbsp;|&nbsp; Total found: <strong>${d.total}</strong>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0" style="font-size:12px;">
+            <thead><tr><th>Name</th><th>Email</th><th>Title</th><th>Score</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5" class="text-muted">No emails found for this domain.</td></tr>'}</tbody>
+          </table>
+        </div>`;
+    })
+    .catch(() => { body.innerHTML = '<span style="color:red;font-size:12px;">Request failed.</span>'; });
+}
+
+function useEmail(email) {
+  document.getElementById('updateEmailForm').style.display = 'block';
+  document.getElementById('newEmailInput').value = email;
+  document.getElementById('updateEmailForm').scrollIntoView({behavior:'smooth'});
+}
+</script>
+{% endblock %}

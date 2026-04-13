@@ -1,0 +1,9 @@
+PassengerEnabled on
+PassengerAppRoot /var/www/vhosts/biminfrasolutions.in/crm.biminfrasolutions.in/httpdocs
+PassengerAppType wsgi
+PassengerStartupFile passenger_wsgi.py
+
+<Directory /var/www/vhosts/biminfrasolutions.in/crm.biminfrasolutions.in/httpdocs>
+    Options -MultiViews
+    Require all granted
+</Directory>

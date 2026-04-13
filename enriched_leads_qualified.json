@@ -1,0 +1,197 @@
+[
+  {
+    "company_name": "Turner Construction Company",
+    "website": "turnerconstruction.com",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Navisworks", "Point Cloud / 3D Laser Scanning", "BIM 360", "Digital Twin", "Autonomous Drones for Site Scanning", "VDC (1,000+ VDC Engineers nationwide)"],
+    "decision_maker": {
+      "first_name": "Gary",
+      "last_name": "Chapman",
+      "job_title": "Regional VDC Manager",
+      "linkedin_url": "linkedin.com/company/turner-construction-company"
+    },
+    "personalized_icebreaker": "Saw Turner's work integrating autonomous drone scanning with BIM workflows to build out the 'Digital Superintendent' concept — that's exactly the kind of as-built accuracy challenge we help VDC teams solve with Scan-to-BIM. Would a paid pilot on one floor plate make sense to road-test the turnaround speed?"
+  },
+  {
+    "company_name": "Clark Construction Group",
+    "website": "clarkconstruction.com",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "Navisworks", "3D Coordination", "4D Scheduling", "BIM Execution Plans", "Digital Engineering"],
+    "decision_maker": {
+      "first_name": "Eric",
+      "last_name": "Liming",
+      "job_title": "VDC Director",
+      "linkedin_url": "linkedin.com/in/eric-liming-1322b080/"
+    },
+    "personalized_icebreaker": "Noticed Clark's Digital Engineering team runs full BIM Execution Plans across every project — that level of coordination rigor is rare. We specialize in MEP clash detection and Scan-to-BIM that plugs directly into your existing Navisworks workflows; happy to run a zero-risk paid sprint on an active phase."
+  },
+  {
+    "company_name": "Hensel Phelps",
+    "website": "henselphelps.com",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "Navisworks", "Clash Detection", "4D BIM", "Point Cloud", "Drone Surveys", "LOD 400"],
+    "decision_maker": {
+      "first_name": "Jim",
+      "last_name": "Park",
+      "job_title": "Senior VDC Manager",
+      "linkedin_url": "linkedin.com/in/jim-park-63313119/"
+    },
+    "personalized_icebreaker": "Came across Hensel Phelps' sUAS program and your team's push to integrate drone data into the BIM workflow — that's the exact gap we bridge with Scan-to-BIM. If you have a current healthcare or aviation phase with as-built accuracy requirements, we'd love to run a paid Clash + Point Cloud sprint and show you the output."
+  },
+  {
+    "company_name": "EllisDon Corporation",
+    "website": "ellisdon.com",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Revizto", "BIM 360", "4D BIM", "Digital Twins", "VDC", "Point Cloud", "HoloLens / AR"],
+    "decision_maker": {
+      "first_name": "Hammad",
+      "last_name": "Chaudhry",
+      "job_title": "VP of Innovation & Construction Technology",
+      "linkedin_url": "linkedin.com/in/hammad-chaudhry"
+    },
+    "personalized_icebreaker": "Your profile on the Brookfield Place Calgary project — $500M, tallest high-rise in western Canada, full VDC-driven delivery — is exactly the kind of scale we work on. We handle MEP coordination and Scan-to-BIM so your in-house VDC team stays focused on high-value decisions, not model maintenance. Worth a quick call?"
+  },
+  {
+    "company_name": "PCL Construction",
+    "website": "pcl.com",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "Revizto", "4D BIM", "Augmented Reality", "HoloLens", "360° Photo Documentation", "VDC", "BIM 360"],
+    "decision_maker": {
+      "first_name": "Alex",
+      "last_name": "Ramirez",
+      "job_title": "Director, Construction Technology (ConTech)",
+      "linkedin_url": "linkedin.com/in/alex-ramirez-41232118a"
+    },
+    "personalized_icebreaker": "Congrats on the 2024 Revizto Collaborator of the Year — that recognition reflects real coordination maturity across the team. We provide MEP clash detection and Scan-to-BIM that integrates cleanly into Revizto workflows; if you're running a complex healthcare or industrial project right now, we can deliver a paid sample package within two weeks."
+  },
+  {
+    "company_name": "Hansen Yuncken",
+    "website": "hansenyuncken.com.au",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Navisworks", "ReCap (Point Cloud)", "Autodesk Forge", "Drone Scanning", "LOD 400", "3D Coordination", "Digital Asset Management"],
+    "decision_maker": {
+      "first_name": "Christopher",
+      "last_name": "Rossetto",
+      "job_title": "BIM & VDC Manager – Victoria",
+      "linkedin_url": "linkedin.com/in/christopher-rossetto/"
+    },
+    "personalized_icebreaker": "Hansen Yuncken delivering the Southern Hemisphere's largest BIM project — 450 Revit models, 3,500 Navisworks federated files on Royal Adelaide — is a benchmark most firms only aspire to. With the Flinders Health & Research Building just handed over, we'd love to support your Victoria team with Scan-to-BIM or MEP coordination capacity on whatever's next."
+  },
+  {
+    "company_name": "Lendlease Australia",
+    "website": "lendlease.com/au",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Digital Twin (Podium Platform)", "BIM", "Revit", "VDC", "Integrated Digital Delivery", "Forge", "Smart Buildings"],
+    "decision_maker": {
+      "first_name": "Rick",
+      "last_name": "Benjamin",
+      "job_title": "Senior Digital Engineer",
+      "linkedin_url": "linkedin.com/in/rickbenjamin85/"
+    },
+    "personalized_icebreaker": "Lendlease Podium creating digital twins before a single brick is laid is a bold shift — and it creates real pressure on as-built accuracy downstream. We deliver Scan-to-BIM point cloud modeling that feeds directly into your Podium digital twin pipeline, so the as-built model stays in sync with the physical build throughout construction."
+  },
+  {
+    "company_name": "ALEC Engineering & Contracting (UAE)",
+    "website": "alec.ae",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Navisworks", "4D (Synchro)", "HoloBuilder 360°", "3D Printing", "AI on-site", "ISO 19650 (in progress)", "BIM / Digital Construction"],
+    "decision_maker": {
+      "first_name": "Andy",
+      "last_name": "Boutle",
+      "job_title": "Head of Digital Construction",
+      "linkedin_url": "linkedin.com/in/andy-boutle"
+    },
+    "personalized_icebreaker": "Saw ALEC's work on One Za'abeel — 72 digital initiatives on a single project is a serious statement of intent. With ISO 19650 certification in flight, your team will need BIM model accuracy at LOD 400 for information delivery milestones; we provide Scan-to-BIM and MEP coordination that maps cleanly to that framework. Happy to run a paid sample on a current live phase."
+  },
+  {
+    "company_name": "Consolidated Contractors Company (CCC)",
+    "website": "ccc.net",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit MEP", "Navisworks", "Clash Detection", "4D Synchro", "BIM Coordination", "LOD 300/400", "MEP Coordination"],
+    "decision_maker": {
+      "first_name": "Cedrik",
+      "last_name": "Padiernos",
+      "job_title": "BIM Engineering Lead – Data Center Solutions",
+      "linkedin_url": "linkedin.com/in/cedrik-padiernos-8730b8103/"
+    },
+    "personalized_icebreaker": "CCC completing the Abu Dhabi Airport Midfield Terminal and Dubai Mall shows the scale and MEP complexity your BIM team handles daily. On data center projects specifically, MEP clash resolution timelines are brutal — we offer a paid MEP coordination sprint in Revit + Navisworks that integrates with your existing P6 / Synchro 4D setup."
+  },
+  {
+    "company_name": "WSP Global (Canada HQ)",
+    "website": "wsp.com",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "BIM 360", "Navisworks", "Civil 3D", "MEP Modeling", "Digital Twin", "Infrastructure BIM", "LOD 400"],
+    "decision_maker": {
+      "first_name": "",
+      "last_name": "",
+      "job_title": "Director of Digital Delivery (fallback — verify on LinkedIn)",
+      "linkedin_url": "linkedin.com/company/wsp-global"
+    },
+    "personalized_icebreaker": "WSP's global infrastructure portfolio — hospitals, transit, aviation — demands BIM execution at every LOD stage simultaneously. We work as an outsourced MEP BIM team, handling clash detection and as-built point cloud work so your delivery teams meet ISO 19650 information requirements without hiring surge."
+  },
+  {
+    "company_name": "Multiplex Construction (Australia)",
+    "website": "multiplex.global",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "Navisworks", "BIM Coordination", "Digital Delivery", "MEP Clash Detection", "4D Scheduling"],
+    "decision_maker": {
+      "first_name": "Krishna",
+      "last_name": "Jinka",
+      "job_title": "Digital Engineering Manager (BIM & VDC) – recently Aurecon/Multiplex",
+      "linkedin_url": "linkedin.com/in/krishna-prasad-jp/"
+    },
+    "personalized_icebreaker": "Multiplex delivering towers and hospitals at scale across Australia's east coast means your BIM team is constantly context-switching between LOD 300 coordination and LOD 500 as-built delivery. We take MEP clash detection and Scan-to-BIM off your plate on individual project phases — starting with a paid sample so you can judge quality before committing."
+  },
+  {
+    "company_name": "Laing O'Rourke (UK & Australia)",
+    "website": "laingorourke.com",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Navisworks", "Point Cloud", "DfMA (Design for Manufacture & Assembly)", "Digital Engineering", "BIM Mandate Compliance", "Autodesk Platform Services"],
+    "decision_maker": {
+      "first_name": "",
+      "last_name": "",
+      "job_title": "Digital Engineering Lead / Head of BIM (verify current – LinkedIn search recommended)",
+      "linkedin_url": "linkedin.com/company/laing-o-rourke"
+    },
+    "personalized_icebreaker": "Laing O'Rourke's DfMA model is one of the most advanced in the industry — but getting accurate Scan-to-BIM data from offsite-manufactured elements back into the live coordination model is a known pain point on complex MEP-heavy schemes. That's exactly where we add value; we'd love to run a paid sample on a current active phase."
+  },
+  {
+    "company_name": "Arup (UK — Global HQ)",
+    "website": "arup.com",
+    "qualification_score": "9",
+    "tech_stack_detected": ["Revit", "Navisworks", "OpenBIM", "Digital Twin", "Generative BIM", "Infrastructure BIM", "LOD 400/500", "Point Cloud", "Grasshopper"],
+    "decision_maker": {
+      "first_name": "",
+      "last_name": "",
+      "job_title": "Digital Design Lead / BIM Director (verify via LinkedIn — multiple regional leads)",
+      "linkedin_url": "linkedin.com/company/arup"
+    },
+    "personalized_icebreaker": "Arup's open BIM and digital twin work on data centers and transport hubs consistently sets the benchmark — especially on projects where LOD 400 MEP accuracy is non-negotiable. We handle Scan-to-BIM and MEP coordination that slots into your Revit + Navisworks environment, covering surge demand without headcount."
+  },
+  {
+    "company_name": "Mace Group (UK)",
+    "website": "macegroup.com",
+    "qualification_score": "10",
+    "tech_stack_detected": ["Revit", "Navisworks", "4D BIM", "Digital Delivery", "BIM Level 2", "Point Cloud", "LOD 400", "Digital Twin"],
+    "decision_maker": {
+      "first_name": "",
+      "last_name": "",
+      "job_title": "Head of Digital / BIM Director (verify on LinkedIn — Mace has dedicated Digital Construction team)",
+      "linkedin_url": "linkedin.com/company/mace-group"
+    },
+    "personalized_icebreaker": "Mace's recent work on the £1B+ HS2 enabling works and complex London mixed-use towers is exactly the kind of programme where MEP clash overruns kill programme. We offer a 2-week paid MEP clash detection sprint — Revit + Navisworks output — so your team can validate before committing to a longer arrangement."
+  },
+  {
+    "company_name": "BGIS (Brookfield Global Integrated Solutions – Canada)",
+    "website": "bgis.com",
+    "qualification_score": "7",
+    "tech_stack_detected": ["BIM (Facilities Management)", "As-Built Documentation", "Digital Twin (Asset Management)", "CAFM Integration"],
+    "decision_maker": {
+      "first_name": "",
+      "last_name": "",
+      "job_title": "Director of Facilities Technology / Digital Delivery Manager (fallback — verify on LinkedIn)",
+      "linkedin_url": "linkedin.com/company/bgis"
+    },
+    "personalized_icebreaker": "BGIS managing 50M+ sq ft of facilities globally means your team is constantly chasing as-built accuracy to keep CAFM and digital twin data current. We deliver Scan-to-BIM surveys and LOD 400 as-built models that plug directly into your asset management workflows — a paid sample on one facility takes two weeks."
+  }
+]

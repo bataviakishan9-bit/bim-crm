@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Reply Card Macro — must be defined before use -->
+{% macro reply_card(r) %}
+<div class="card mb-2" style="border-left: 4px solid
+  {% if r.priority == 'High' %}#dc3545
+  {% elif r.priority == 'Medium' %}#ffc107
+  {% else %}#6c757d{% endif %};">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex justify-content-between align-items-start">
+
+      <!-- Left: info -->
+      <div style="flex:1;">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span class="badge"
+            style="font-size:11px;background:
+              {% if r.priority == 'High' %}#dc3545
+              {% elif r.priority == 'Medium' %}#ffc107;color:#333
+              {% else %}#6c757d{% endif %};">
+            {{ r.priority }}
+          </span>
+          {% if r.status == 'Unread' %}
+          <span class="badge bg-primary" style="font-size:10px;">NEW</span>
+          {% endif %}
+          <strong style="font-size:13px;">{{ r.subject or '(no subject)' }}</strong>
+        </div>
+
+        <div style="font-size:12px;color:#555;margin-bottom:4px;">
+          From:
+          {% if r.lead_id %}
+            <a href="/leads/{{ r.lead_id }}" style="color:#1B3A6B;font-weight:500;">
+              {{ r.first_name }} {{ r.last_name }} ({{ r.company }})
+            </a>
+          {% else %}
+            {{ r.from_email }}
+          {% endif %}
+          &nbsp;·&nbsp; {{ r.received_at[:16] if r.received_at else '' }}
+          &nbsp;·&nbsp; <span class="text-muted">{{ r.source }}</span>
+        </div>
+
+        {% if r.body %}
+        <div style="font-size:12px;color:#666;background:#f9f9f9;padding:6px 10px;border-radius:4px;">
+          {{ r.body[:200] }}{% if r.body|length > 200 %}…{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Right: actions -->
+      <div class="d-flex flex-column gap-1 ms-3" style="min-width:130px;">
+
+        <!-- Change priority -->
+        <form method="POST" action="/replies/{{ r.id }}/priority" class="d-flex gap-1">
+          <select name="priority" class="form-select form-select-sm" style="font-size:11px;">
+            <option {% if r.priority == 'High' %}selected{% endif %}>High</option>
+            <option {% if r.priority == 'Medium' %}selected{% endif %}>Medium</option>
+            <option {% if r.priority == 'Low' %}selected{% endif %}>Low</option>
+          </select>
+          <button class="btn btn-outline-secondary btn-sm" style="font-size:11px;padding:2px 6px;">Set</button>
+        </form>
+
+        <!-- Mark read / archive -->
+        <div class="d-flex gap-1">
+          {% if r.status == 'Unread' %}
+          <form method="POST" action="/replies/{{ r.id }}/status">
+            <input type="hidden" name="status" value="Read">
+            <button class="btn btn-outline-success btn-sm" style="font-size:11px;padding:2px 6px;">
+              Mark Read
+            </button>
+          </form>
+          {% endif %}
+          <form method="POST" action="/replies/{{ r.id }}/status">
+            <input type="hidden" name="status" value="Archived">
+            <button class="btn btn-outline-secondary btn-sm" style="font-size:11px;padding:2px 6px;">
+              Archive
+            </button>
+          </form>
+          <form method="POST" action="/replies/{{ r.id }}/delete"
+                onsubmit="return confirm('Delete this reply?')">
+            <button class="btn btn-outline-danger btn-sm" style="font-size:11px;padding:2px 6px;">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-reply-all me-2"></i>Replies Inbox</h4>
+    <small class="text-muted">{{ replies|length }} reply(ies)</small>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/replies/sync-delivery" class="btn btn-bim btn-sm">
+      <i class="bi bi-radar me-1"></i> Scan Zoho — Bounces, Replies, OOO
+    </a>
+    <a href="/replies/sync" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-repeat me-1"></i> Sync Replies Only
+    </a>
+  </div>
+</div>
+
+<!-- Priority Tabs -->
+<div class="mb-3 d-flex gap-2">
+  <a href="/replies"
+     class="btn btn-sm {% if not active_priority %}btn-dark{% else %}btn-outline-secondary{% endif %}">
+    All
+    <span class="badge bg-secondary ms-1">{{ (counts.High or 0) + (counts.Medium or 0) + (counts.Low or 0) }}</span>
+  </a>
+  <a href="/replies?priority=High"
+     class="btn btn-sm {% if active_priority == 'High' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+    <i class="bi bi-fire me-1"></i> High
+    <span class="badge bg-danger ms-1">{{ counts.High or 0 }}</span>
+  </a>
+  <a href="/replies?priority=Medium"
+     class="btn btn-sm {% if active_priority == 'Medium' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+    <i class="bi bi-dash-circle me-1"></i> Medium
+    <span class="badge bg-warning text-dark ms-1">{{ counts.Medium or 0 }}</span>
+  </a>
+  <a href="/replies?priority=Low"
+     class="btn btn-sm {% if active_priority == 'Low' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-arrow-down-circle me-1"></i> Low
+    <span class="badge bg-secondary ms-1">{{ counts.Low or 0 }}</span>
+  </a>
+</div>
+
+<!-- Replies List -->
+{% if replies %}
+  <!-- High Priority -->
+  {% set high = replies | selectattr('priority', 'equalto', 'High') | list %}
+  {% if high and not active_priority %}
+  <div class="mb-2">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span class="badge bg-danger px-3 py-2" style="font-size:12px;">
+        <i class="bi bi-fire me-1"></i> HIGH PRIORITY
+      </span>
+      <hr class="flex-grow-1 m-0">
+    </div>
+    {% for r in high %}
+      {{ reply_card(r) }}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Medium Priority -->
+  {% set med = replies | selectattr('priority', 'equalto', 'Medium') | list %}
+  {% if med and not active_priority %}
+  <div class="mb-2">
+    <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+      <span class="badge bg-warning text-dark px-3 py-2" style="font-size:12px;">
+        <i class="bi bi-dash-circle me-1"></i> MEDIUM PRIORITY
+      </span>
+      <hr class="flex-grow-1 m-0">
+    </div>
+    {% for r in med %}
+      {{ reply_card(r) }}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Low Priority -->
+  {% set low = replies | selectattr('priority', 'equalto', 'Low') | list %}
+  {% if low and not active_priority %}
+  <div class="mb-2">
+    <div class="d-flex align-items-center gap-2 mb-2 mt-3">
+      <span class="badge bg-secondary px-3 py-2" style="font-size:12px;">
+        <i class="bi bi-arrow-down-circle me-1"></i> LOW PRIORITY
+      </span>
+      <hr class="flex-grow-1 m-0">
+    </div>
+    {% for r in low %}
+      {{ reply_card(r) }}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Filtered view (single priority tab) -->
+  {% if active_priority %}
+    {% for r in replies %}
+      {{ reply_card(r) }}
+    {% endfor %}
+  {% endif %}
+
+{% else %}
+<div class="card">
+  <div class="card-body text-center text-muted py-5">
+    <i class="bi bi-inbox" style="font-size:40px;opacity:0.3;"></i>
+    <p class="mt-3 mb-1">No replies yet.</p>
+    <small>
+      Click <strong>Sync from Zoho Mail</strong> to pull replies automatically,
+      or log them manually from a lead's profile.
+    </small>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

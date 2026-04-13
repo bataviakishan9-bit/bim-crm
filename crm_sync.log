@@ -1,0 +1,67 @@
+2026-04-10 11:22:36,867 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:22:37,423 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:22:37,427 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:22:37,429 [INFO] Found 0 replies.
+2026-04-10 11:34:01,334 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:34:01,858 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:34:01,861 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:34:01,862 [INFO] Found 0 replies.
+2026-04-10 11:34:04,467 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:34:04,980 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:34:04,981 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:34:04,982 [INFO] Found 0 replies.
+2026-04-10 11:34:09,902 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:34:10,459 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:34:10,464 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:34:10,467 [INFO] Found 0 replies.
+2026-04-10 11:39:15,180 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:39:15,736 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:39:15,738 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:39:15,738 [INFO] Found 0 replies.
+2026-04-10 11:44:19,952 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:44:20,498 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:44:20,501 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:44:20,501 [INFO] Found 0 replies.
+2026-04-10 11:49:26,170 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:49:26,758 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:49:26,761 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:49:26,764 [INFO] Found 0 replies.
+2026-04-10 11:54:30,870 [INFO] Checking Zoho Mail for replies...
+2026-04-10 11:54:31,380 [ERROR] Inbox fetch failed: Token refresh failed: {'error': 'invalid_code'}
+2026-04-10 11:54:31,383 [INFO] Reply check complete. 0 replies found.
+2026-04-10 11:54:31,385 [INFO] Found 0 replies.
+2026-04-10 12:17:36,000 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:17:36,553 [INFO] Zoho token refreshed.
+2026-04-10 12:17:36,957 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:17:36,960 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:17:36,961 [INFO] Found 0 replies.
+2026-04-10 12:17:38,825 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:17:39,320 [INFO] Zoho token refreshed.
+2026-04-10 12:17:39,673 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:17:39,674 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:17:39,675 [INFO] Found 0 replies.
+2026-04-10 12:17:41,666 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:17:42,227 [INFO] Zoho token refreshed.
+2026-04-10 12:17:42,642 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:17:42,644 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:17:42,644 [INFO] Found 0 replies.
+2026-04-10 12:22:47,194 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:22:48,211 [INFO] Zoho token refreshed.
+2026-04-10 12:22:48,615 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:22:48,620 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:22:48,621 [INFO] Found 0 replies.
+2026-04-10 12:27:55,137 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:27:55,779 [INFO] Zoho token refreshed.
+2026-04-10 12:27:56,204 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:27:56,206 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:27:56,206 [INFO] Found 0 replies.
+2026-04-10 12:33:02,147 [INFO] Checking Zoho Mail for replies...
+2026-04-10 12:33:02,668 [INFO] Zoho token refreshed.
+2026-04-10 12:33:03,037 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 12:33:03,040 [INFO] Reply check complete. 0 replies found.
+2026-04-10 12:33:03,044 [INFO] Found 0 replies.
+2026-04-10 17:19:53,975 [INFO] Checking Zoho Mail for replies...
+2026-04-10 17:19:54,563 [INFO] Zoho token refreshed.
+2026-04-10 17:19:54,996 [WARNING] Inbox fetch returned 400: {"data":{"errorCode":"UNABLE_TO_PARSE_DATA_TYPE","moreInfo":"folderId\\x20Invalid\\x20data\\x20type"},"status":{"code":400,"description":"Invalid Input"}}
+2026-04-10 17:19:54,998 [INFO] Reply check complete. 0 replies found.
+2026-04-10 17:19:54,998 [INFO] Found 0 replies.

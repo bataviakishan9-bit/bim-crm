@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-google me-2"></i>Import from Google Sheet</h4>
+    <small class="text-muted">Paste a public Google Sheet URL to import leads</small>
+  </div>
+  <a href="/leads" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Back
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Google Sheet ID</label>
+        <input type="text" name="sheet_id" class="form-control"
+               value="1buAYF8WykRsNToMw8UjAHct_EOX8TyH8" required>
+        <div class="form-text">The ID from the sheet URL: .../spreadsheets/d/<strong>THIS_PART</strong>/edit</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Assign Email Template</label>
+        <select name="template" class="form-select">
+          <option value="D" selected>D — INFRA X Drone Progress Monitoring</option>
+          <option value="A">A — Enterprise / GC</option>
+          <option value="B">B — Architecture Firms</option>
+          <option value="C">C — Drone / Scan-to-BIM</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-bim">
+        <i class="bi bi-cloud-download me-1"></i> Import Leads from Sheet
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

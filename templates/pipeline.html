@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .pipeline-wrap {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    align-items: flex-start;
+  }
+  .pipeline-col {
+    min-width: 230px;
+    max-width: 230px;
+    background: #f5f7fa;
+    border-radius: 10px;
+    padding: 0 0 10px 0;
+    flex-shrink: 0;
+  }
+  .pipeline-col-header {
+    border-radius: 10px 10px 0 0;
+    padding: 10px 14px 8px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pipeline-col-header .count {
+    background: rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 11px;
+  }
+  .pipeline-cards {
+    padding: 10px 8px 4px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .pipeline-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    cursor: grab;
+    transition: box-shadow 0.15s, transform 0.1s;
+    border-left: 3px solid transparent;
+    font-size: 12px;
+    position: relative;
+  }
+  .pipeline-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.14); transform: translateY(-1px); }
+  .pipeline-card.dragging { opacity: 0.5; transform: rotate(2deg); }
+  .pipeline-col.drag-over .pipeline-cards { background: rgba(27,58,107,0.05); border-radius: 6px; }
+  .card-name { font-weight: 700; color: #1B3A6B; font-size: 12px; margin-bottom: 2px; }
+  .card-company { color: #555; font-size: 11px; }
+  .card-meta { color: #888; font-size: 10px; margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .card-badge { border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; }
+  .card-seq { font-size: 10px; color: #888; margin-top: 4px; }
+  .priority-high   { background:#ffebee; color:#b71c1c; }
+  .priority-med    { background:#fff8e1; color:#e65100; }
+  .priority-low    { background:#e8eaf6; color:#283593; }
+  .card-actions { display: none; position: absolute; top: 8px; right: 8px; }
+  .pipeline-card:hover .card-actions { display: flex; gap: 3px; }
+  .card-actions a, .card-actions button {
+    background: #f0f0f0; border: none; border-radius: 4px;
+    padding: 2px 5px; font-size: 10px; color: #333; cursor: pointer;
+    text-decoration: none;
+  }
+  .card-actions a:hover, .card-actions button:hover { background: #1B3A6B; color: #fff; }
+  .move-select {
+    font-size: 10px; border: 1px solid #ddd; border-radius: 4px;
+    padding: 1px 4px; color: #333; background: #fff; cursor: pointer;
+    max-width: 110px;
+  }
+  .empty-col { color: #bbb; text-align: center; font-size: 11px; padding: 14px 0; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-kanban me-2"></i>Pipeline</h4>
+    <small class="text-muted">Drag cards to move leads between stages</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/leads" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> List View</a>
+    <a href="/leads/new" class="btn btn-bim btn-sm"><i class="bi bi-person-plus"></i> Add Lead</a>
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% set total_all = namespace(v=0) %}
+  {% for s in stages %}{% set total_all.v = total_all.v + totals[s] %}{% endfor %}
+  <div class="stat-card d-flex align-items-center gap-3 py-2 px-3" style="border-radius:8px;font-size:12px;">
+    <span><strong style="font-size:20px;color:#1B3A6B;">{{ total_all.v }}</strong><br><span class="text-muted">Total Leads</span></span>
+  </div>
+  {% for s in ['Hot','Engaged','Contacted'] %}
+  <div class="stat-card d-flex align-items-center gap-2 py-2 px-3" style="border-radius:8px;font-size:12px;border-left:3px solid {{ stage_colors[s] }};">
+    <strong style="font-size:20px;color:{{ stage_colors[s] }};">{{ totals[s] }}</strong>
+    <span class="text-muted">{{ s }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Kanban Board -->
+<div class="pipeline-wrap" id="pipelineBoard">
+  {% for stage in stages %}
+  <div class="pipeline-col" id="col-{{ stage }}" data-stage="{{ stage }}"
+       ondragover="event.preventDefault(); this.classList.add('drag-over')"
+       ondragleave="this.classList.remove('drag-over')"
+       ondrop="handleDrop(event, '{{ stage }}')">
+
+    <div class="pipeline-col-header" style="background:{{ stage_colors[stage] }};">
+      {{ stage }}
+      <span class="count">{{ totals[stage] }}</span>
+    </div>
+
+    <div class="pipeline-cards" id="cards-{{ stage }}">
+      {% if columns[stage] %}
+        {% for lead in columns[stage] %}
+        <div class="pipeline-card" id="card-{{ lead.id }}"
+             draggable="true"
+             ondragstart="handleDragStart(event, {{ lead.id }})"
+             style="border-left-color:{{ stage_colors[stage] }};">
+
+          <div class="card-name">{{ lead.first_name }} {{ lead.last_name }}</div>
+          <div class="card-company">{{ lead.company }}</div>
+
+          <div class="card-meta">
+            <span class="card-badge {% if lead.priority_score >= 80 %}priority-high{% elif lead.priority_score >= 60 %}priority-med{% else %}priority-low{% endif %}">
+              ★ {{ lead.priority_score }}
+            </span>
+            <span class="card-badge" style="background:#e3f2fd;color:#1565c0;">Tmpl {{ lead.email_template }}</span>
+            <span style="color:#888;">{{ lead.country }}</span>
+          </div>
+
+          <div class="card-seq">
+            Email {{ lead.email_sequence_step }}/3 sent
+            {% if lead.last_email_sent %}· {{ lead.last_email_sent[:10] }}{% endif %}
+          </div>
+
+          <!-- Hover actions -->
+          <div class="card-actions">
+            <a href="/leads/{{ lead.id }}" title="View">👁</a>
+            <a href="/leads/{{ lead.id }}/edit" title="Edit">✏️</a>
+            <select class="move-select" onchange="moveCard({{ lead.id }}, this.value)" title="Move to stage">
+              <option value="">Move →</option>
+              {% for s in stages %}
+              {% if s != stage %}
+              <option value="{{ s }}">{{ s }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-col">No leads</div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+let draggedId = null;
+
+function handleDragStart(e, leadId) {
+  draggedId = leadId;
+  document.getElementById('card-' + leadId).classList.add('dragging');
+}
+
+function handleDrop(e, stage) {
+  e.preventDefault();
+  const col = document.getElementById('col-' + stage);
+  col.classList.remove('drag-over');
+  if (!draggedId) return;
+  const card = document.getElementById('card-' + draggedId);
+  if (card) {
+    card.classList.remove('dragging');
+    document.getElementById('cards-' + stage).appendChild(card);
+    // Update border color
+    const colors = {{ stage_colors | tojson }};
+    card.style.borderLeftColor = colors[stage] || '#1B3A6B';
+  }
+  // Update counts
+  document.querySelectorAll('.pipeline-col').forEach(c => {
+    const s = c.dataset.stage;
+    const cnt = c.querySelectorAll('.pipeline-card').length;
+    c.querySelector('.count').textContent = cnt;
+  });
+  // Persist to server
+  fetch('/leads/' + draggedId + '/move-stage', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'status=' + encodeURIComponent(stage)
+  });
+  draggedId = null;
+}
+
+function moveCard(leadId, stage) {
+  if (!stage) return;
+  fetch('/leads/' + leadId + '/move-stage', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'status=' + encodeURIComponent(stage)
+  }).then(() => location.reload());
+}
+
+document.addEventListener('dragend', () => {
+  document.querySelectorAll('.pipeline-card').forEach(c => c.classList.remove('dragging'));
+  document.querySelectorAll('.pipeline-col').forEach(c => c.classList.remove('drag-over'));
+});
+</script>
+
+{% endblock %}

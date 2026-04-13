@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-file-earmark-excel me-2"></i>Import Leads from Excel</h4>
+    <small class="text-muted">Upload BIM Infra Solutions Lead Engine (.xlsx)</small>
+  </div>
+  <a href="/leads" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left"></i> Back to Leads
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="alert alert-info" style="font-size:13px;">
+      <strong>Expected sheet:</strong> "Lead Database" (header on row 2)<br>
+      <strong>Expected columns:</strong>
+      Decision Maker, Title, Company Name, Email, Website, City / State, Country,
+      Company Type, Priority Score, Services Needed, Outsourcing Likelihood,
+      Pitch Angle, Email Template, LinkedIn URL, Pain Point
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Excel File (.xlsx)</label>
+        <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+        <div class="form-text">Duplicate emails will be skipped automatically.</div>
+      </div>
+      <button type="submit" class="btn btn-bim">
+        <i class="bi bi-upload me-1"></i> Import Leads
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

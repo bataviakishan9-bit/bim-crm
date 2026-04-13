@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-people me-2"></i>Leads</h4>
+    <small class="text-muted">{{ leads|length }} lead(s) found</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/leads/import" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-file-earmark-excel"></i> Import Excel
+    </a>
+    <a href="/leads/new" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-plus-lg"></i> Add Lead
+    </a>
+    <form method="POST" action="/leads/send-all"
+          onsubmit="return confirm('Send next sequence email to ALL eligible leads now?')">
+      <button class="btn btn-sm" style="background:#D4A017;color:#fff;font-weight:600;">
+        <i class="bi bi-send-fill me-1"></i> Send All Emails
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Bulk send result banner -->
+{% if bulk_sent is defined %}
+<div class="alert alert-success alert-dismissible fade show py-2" style="font-size:13px;">
+  <i class="bi bi-check-circle me-1"></i>
+  <strong>Bulk send complete:</strong>
+  {{ bulk_sent }} email(s) sent, {{ bulk_skipped }} skipped (already sent / sequence complete).
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- Filters -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="GET" class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <input type="text" name="search" class="form-control form-control-sm"
+               placeholder="Search name, email, company..." value="{{ search }}">
+      </div>
+      <div class="col-md-2">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Status</option>
+          {% for s in ['New','Hot','Warm','Contacted','Engaged','Cold','Unsubscribed','Invalid'] %}
+          <option {% if status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="country" class="form-select form-select-sm">
+          <option value="">All Countries</option>
+          {% for c in ['USA','Germany','Australia','UK','Canada','India','UAE'] %}
+          <option {% if country == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="template" class="form-select form-select-sm">
+          <option value="">All Templates</option>
+          <option value="A" {% if template == 'A' %}selected{% endif %}>Template A — Enterprise</option>
+          <option value="B" {% if template == 'B' %}selected{% endif %}>Template B — Architecture</option>
+          <option value="C" {% if template == 'C' %}selected{% endif %}>Template C — Drone/Scan</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-1">
+        <button type="submit" class="btn btn-bim btn-sm flex-grow-1">Filter</button>
+        <a href="/leads" class="btn btn-outline-secondary btn-sm">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th class="ps-3">Name</th>
+          <th>Company</th>
+          <th>Email</th>
+          <th>Country</th>
+          <th>Status</th>
+          <th>Tmpl</th>
+          <th>Score</th>
+          <th>Seq</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if leads %}
+          {% for lead in leads %}
+          <tr>
+            <td class="ps-3">
+              <a href="/leads/{{ lead.id }}" style="color:#1B3A6B;font-weight:500;font-size:13px;">
+                {% if lead.status == 'Hot' %}<span style="color:#b71c1c;">&#x1F525;</span> {% endif %}
+                {{ lead.first_name }} {{ lead.last_name }}
+              </a>
+            </td>
+            <td style="font-size:13px;">{{ lead.company or '—' }}</td>
+            <td style="font-size:12px;color:#666;">{{ lead.email }}</td>
+            <td style="font-size:12px;">{{ lead.country }}</td>
+            <td>
+              <span class="badge badge-{{ lead.status | lower }}" style="font-size:11px;padding:3px 8px;border-radius:20px;">
+                {{ lead.status }}
+              </span>
+            </td>
+            <td style="font-size:12px;">{{ lead.email_template }}</td>
+            <td>
+              <span class="badge" style="font-size:11px;background:
+                {% if lead.priority_score >= 80 %}#b71c1c
+                {% elif lead.priority_score >= 60 %}#e65100
+                {% else %}#1B3A6B{% endif %};color:#fff;">
+                {{ lead.priority_score }}
+              </span>
+            </td>
+            <td style="font-size:12px;color:#666;">{{ lead.email_sequence_step }}/3</td>
+            <td>
+              <a href="/leads/{{ lead.id }}" class="btn btn-sm btn-outline-primary" style="font-size:11px;padding:2px 8px;">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-5">
+              No leads found.
+              <a href="/leads/new">Add your first lead</a> or
+              <a href="/leads/import">import from Excel</a>.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

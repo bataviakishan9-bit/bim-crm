@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BIM Infra CRM</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root { --blue:#1B3A6B; --gold:#D4A017; }
+    body { font-family:'Segoe UI',sans-serif; background:#f0f2f5; }
+
+    /* Sidebar */
+    .sidebar {
+      width:230px; min-height:100vh; background:var(--blue);
+      position:fixed; top:0; left:0; padding-top:0; z-index:100;
+    }
+    .sidebar .brand {
+      padding:18px 15px 14px; border-bottom:1px solid rgba(255,255,255,0.1);
+      text-align:center;
+    }
+    .sidebar .brand h5 { color:#fff; font-size:13px; font-weight:700; margin:0; }
+    .sidebar .brand p  { color:var(--gold); font-size:11px; margin:3px 0 0; }
+    .sidebar .nav-link {
+      color:rgba(255,255,255,0.72); padding:10px 18px; font-size:13px;
+      display:flex; align-items:center; gap:10px; border-left:3px solid transparent;
+    }
+    .sidebar .nav-link:hover { color:#fff; background:rgba(255,255,255,0.07); }
+    .sidebar .nav-link.active { color:#fff; background:rgba(255,255,255,0.12); border-left-color:var(--gold); }
+    .sidebar .nav-link i { width:16px; text-align:center; }
+    .sidebar hr { border-color:rgba(255,255,255,0.1); margin:6px 15px; }
+
+    /* Main */
+    .main-content { margin-left:230px; padding:25px 30px; min-height:100vh; }
+
+    /* Page header */
+    .page-header {
+      background:#fff; padding:16px 22px; border-radius:10px;
+      margin-bottom:22px; box-shadow:0 1px 3px rgba(0,0,0,0.07);
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .page-header h4 { margin:0; color:var(--blue); font-weight:700; font-size:17px; }
+
+    /* Cards */
+    .card { border:none; box-shadow:0 1px 4px rgba(0,0,0,0.08); border-radius:10px; }
+    .card-header { border-radius:10px 10px 0 0 !important; font-size:14px; }
+
+    /* Stat cards */
+    .stat-card { background:#fff; border-radius:10px; padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+    .stat-card .number { font-size:30px; font-weight:700; color:var(--blue); line-height:1; }
+    .stat-card .label  { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+
+    /* Status badges */
+    .badge-new          { background:#e3f2fd; color:#1565c0; }
+    .badge-hot          { background:#fce4ec; color:#b71c1c; }
+    .badge-warm         { background:#fff8e1; color:#e65100; }
+    .badge-cold         { background:#e8eaf6; color:#283593; }
+    .badge-contacted    { background:#e8f5e9; color:#1b5e20; }
+    .badge-engaged      { background:#f3e5f5; color:#4a148c; }
+    .badge-unsubscribed { background:#f5f5f5; color:#616161; }
+    .badge-invalid      { background:#ffebee; color:#c62828; }
+
+    /* Sequence steps */
+    .seq-step {
+      width:26px; height:26px; border-radius:50%;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-size:12px; font-weight:600;
+    }
+    .seq-done    { background:var(--blue); color:#fff; }
+    .seq-current { background:var(--gold); color:#fff; }
+    .seq-pending { background:#e9ecef; color:#adb5bd; }
+    .seq-line    { width:28px; height:2px; display:inline-block; vertical-align:middle; margin:0 3px; }
+    .seq-line-done    { background:var(--blue); }
+    .seq-line-pending { background:#dee2e6; }
+
+    /* Buttons */
+    .btn-bim { background:var(--blue); color:#fff; }
+    .btn-bim:hover { background:#152d54; color:#fff; }
+
+    /* Table */
+    .table th { background:#f8f9fa; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; color:#666; font-weight:600; }
+
+    a { text-decoration:none; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="brand">
+    <h5>BIM Infra Solutions</h5>
+    <p>Custom CRM</p>
+  </div>
+  <nav class="nav flex-column mt-2">
+    <a href="/"             class="nav-link {% if request.path == '/' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+    <a href="/leads"        class="nav-link {% if request.path.startswith('/leads') and 'new' not in request.path and 'import' not in request.path %}active{% endif %}">
+      <i class="bi bi-people"></i> Leads
+    </a>
+    <a href="/leads/new"    class="nav-link {% if '/leads/new' in request.path %}active{% endif %}">
+      <i class="bi bi-person-plus"></i> Add Lead
+    </a>
+    <a href="/leads/import" class="nav-link {% if request.path == '/leads/import' %}active{% endif %}">
+      <i class="bi bi-file-earmark-excel"></i> Import Excel
+    </a>
+    <a href="/leads/import-sheet" class="nav-link {% if '/import-sheet' in request.path %}active{% endif %}">
+      <i class="bi bi-google"></i> Import Google Sheet
+    </a>
+    <a href="/pipeline" class="nav-link {% if request.path == '/pipeline' %}active{% endif %}">
+      <i class="bi bi-kanban"></i> Pipeline
+    </a>
+    <a href="/replies" class="nav-link {% if '/replies' in request.path %}active{% endif %}">
+      <i class="bi bi-reply-all"></i> Replies Inbox
+    </a>
+    <hr>
+    <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+      <i class="bi bi-gear"></i> Settings
+    </a>
+    <hr>
+    <div style="padding:10px 15px 6px;font-size:11px;color:rgba(255,255,255,0.45);">
+      Logged in as <strong style="color:rgba(255,255,255,0.7);">{{ current_user.display }}</strong>
+    </div>
+    <a href="/change-password" class="nav-link {% if request.path == '/change-password' %}active{% endif %}"
+       style="font-size:12px;">
+      <i class="bi bi-key"></i> Change Password
+    </a>
+    <a href="/logout" class="nav-link" style="color:rgba(255,100,100,0.8);">
+      <i class="bi bi-box-arrow-left"></i> Logout
+    </a>
+  </nav>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }} alert-dismissible fade show py-2" role="alert" style="font-size:13px;">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
