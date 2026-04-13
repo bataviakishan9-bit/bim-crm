@@ -318,8 +318,13 @@ def send_email(lead_id):
         return redirect(url_for("lead_detail", lead_id=lead_id))
 
     try:
-        user_cfg = db.get_user_settings(current_user.username)
-        success, subject, body = mail_client.send_sequence_email(lead, step, user_settings=user_cfg or None)
+        user_cfg      = db.get_user_settings(current_user.username)
+        custom_tpl    = db.get_email_template(lead.get("email_template", "A"), step)
+        success, subject, body = mail_client.send_sequence_email(
+            lead, step,
+            user_settings=user_cfg or None,
+            custom_template=custom_tpl or None,
+        )
     except Exception as e:
         err = str(e)
         if "invalid_code" in err or "invalid_token" in err:
@@ -887,20 +892,17 @@ def templates_list():
     saved = db.get_all_email_templates()
 
     # Build display data: for active template, get subject/body for each step (DB or default)
-    from zoho_mail import get_email_content as _gec
     steps_display = []
     for step in range(3):
         db_row = saved.get((active, step))
         if db_row:
-            subject = db_row["subject"]
-            body    = db_row["body"]
+            subject   = db_row["subject"]
+            body      = db_row["body"]
             is_custom = True
         else:
-            # Load from built-in defaults (pass placeholder vars)
-            raw_subj, _ = _gec(active, step, "{first_name}", "{company}")
-            # Get raw body before wrapping — re-derive from zoho_mail internals
-            subject  = raw_subj
-            body     = _get_raw_body(active, step)
+            body      = _get_raw_body(active, step)
+            # Extract subject from built-in default via raw body lookup
+            subject   = _get_default_subject(active, step)
             is_custom = False
         steps_display.append({"step": step, "subject": subject, "body": body, "is_custom": is_custom})
 
@@ -937,6 +939,32 @@ def reset_template():
     conn.close()
     flash(f"Template {key} — Step {step+1} reset to default.", "info")
     return redirect(url_for("templates_list", t=key))
+
+
+def _get_default_subject(template_key: str, step: int) -> str:
+    subjects = {
+        "A": [
+            "{first_name}, is {company}'s BIM team at full capacity right now?",
+            "Re: BIM capacity at {company} — one example that might be relevant",
+            "Last note — pilot slots for {company}",
+        ],
+        "B": [
+            "{first_name} — is your Revit team keeping up with project deadlines at {company}?",
+            "{first_name} — our work for firms like {company} (quick examples)",
+            "Final note from me — {company}",
+        ],
+        "C": [
+            "{first_name} — turning {company}'s scan data into BIM models (we've done 15+ projects)",
+            "{first_name} — our Scan-to-BIM workflow for {company} (short overview)",
+            "Last note — Scan-to-BIM pilot for {company}",
+        ],
+        "D": [
+            "{first_name}, one question about how {company} monitors site progress",
+            "INFRA X at Khavada — what {company} can do with this",
+            "Last note — INFRA X and {company}",
+        ],
+    }
+    return subjects.get(template_key, subjects["A"])[step]
 
 
 def _get_raw_body(template_key: str, step: int) -> str:

@@ -160,7 +160,8 @@ class ZohoMailClient:
         log.error("Email failed [%s]: %s", r.status_code, r.text)
         return False
 
-    def send_sequence_email(self, lead: dict, step: int, user_settings: dict = None) -> tuple:
+    def send_sequence_email(self, lead: dict, step: int, user_settings: dict = None,
+                            custom_template: dict = None) -> tuple:
         """
         Send the correct sequence email for a lead.
         Returns (success: bool, subject: str, html_body: str)
@@ -169,7 +170,8 @@ class ZohoMailClient:
         first_name = lead.get("first_name", "there")
         company    = lead.get("company", "your company")
 
-        subject, html_body = get_email_content(template, step, first_name, company)
+        subject, html_body = get_email_content(template, step, first_name, company,
+                                               custom_override=custom_template)
 
         if not subject:
             return False, "", ""
@@ -499,14 +501,13 @@ def get_portfolio_link(template: str) -> str:
     return PORTFOLIO_LINK
 
 
-def get_email_content(template: str, step: int, first_name: str, company: str) -> tuple:
+def get_email_content(template: str, step: int, first_name: str, company: str,
+                      custom_override: dict = None) -> tuple:
     """Returns (subject, html_body) for the given template + step.
-    Checks database for custom overrides first, falls back to built-in templates."""
-    import database as _db
-    custom = _db.get_email_template(template, step)
-    if custom:
-        raw_body = custom["body"].replace("{first_name}", first_name).replace("{company}", company)
-        raw_subj = custom["subject"].replace("{first_name}", first_name).replace("{company}", company)
+    Pass custom_override dict {subject, body} to use a DB-stored custom template."""
+    if custom_override:
+        raw_body = custom_override["body"].replace("{first_name}", first_name).replace("{company}", company)
+        raw_subj = custom_override["subject"].replace("{first_name}", first_name).replace("{company}", company)
         port_link = get_portfolio_link(template)
         return raw_subj, _wrap_email(raw_body, port_link)
 
