@@ -117,6 +117,9 @@
     <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
       <i class="bi bi-gear"></i> Settings
     </a>
+    <a href="/my-settings" class="nav-link {% if request.path == '/my-settings' %}active{% endif %}">
+      <i class="bi bi-envelope-gear"></i> My Email Setup
+    </a>
     <hr>
     <div style="padding:10px 15px 6px;font-size:11px;color:rgba(255,255,255,0.45);">
       Logged in as <strong style="color:rgba(255,255,255,0.7);">{{ current_user.display }}</strong>

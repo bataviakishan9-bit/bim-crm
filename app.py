@@ -318,7 +318,8 @@ def send_email(lead_id):
         return redirect(url_for("lead_detail", lead_id=lead_id))
 
     try:
-        success, subject, body = mail_client.send_sequence_email(lead, step)
+        user_cfg = db.get_user_settings(current_user.username)
+        success, subject, body = mail_client.send_sequence_email(lead, step, user_settings=user_cfg or None)
     except Exception as e:
         err = str(e)
         if "invalid_code" in err or "invalid_token" in err:
@@ -865,6 +866,54 @@ def settings():
                            zoho_dc=dc,
                            zoho_account_id=acct,
                            hunter_key=masked_hkey)
+
+
+@app.route("/my-settings", methods=["GET", "POST"])
+@login_required
+def my_settings():
+    username = current_user.username
+    cfg = db.get_user_settings(username) or {}
+
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+
+        # If settings are locked, only allow unlock
+        if cfg.get("is_locked") and action != "unlock":
+            flash("Settings are locked. Click Unlock to edit.", "warning")
+            return redirect(url_for("my_settings"))
+
+        if action == "unlock":
+            cfg["is_locked"] = 0
+            db.save_user_settings(username, {
+                "sender_email"      : cfg.get("sender_email", ""),
+                "sender_name"       : cfg.get("sender_name", ""),
+                "zoho_client_id"    : cfg.get("zoho_client_id", ""),
+                "zoho_client_secret": cfg.get("zoho_client_secret", ""),
+                "zoho_refresh_token": cfg.get("zoho_refresh_token", ""),
+                "zoho_dc"           : cfg.get("zoho_dc", "in"),
+                "zoho_account_id"   : cfg.get("zoho_account_id", ""),
+                "is_locked"         : 0,
+            })
+            flash("Settings unlocked. You can now edit.", "info")
+            return redirect(url_for("my_settings"))
+
+        # Save
+        lock = 1 if request.form.get("lock") == "on" else 0
+        data = {
+            "sender_email"      : request.form.get("sender_email", "").strip(),
+            "sender_name"       : request.form.get("sender_name", "").strip(),
+            "zoho_client_id"    : request.form.get("zoho_client_id", "").strip(),
+            "zoho_client_secret": request.form.get("zoho_client_secret", "").strip(),
+            "zoho_refresh_token": request.form.get("zoho_refresh_token", "").strip(),
+            "zoho_dc"           : request.form.get("zoho_dc", "in").strip(),
+            "zoho_account_id"   : request.form.get("zoho_account_id", "").strip(),
+            "is_locked"         : lock,
+        }
+        db.save_user_settings(username, data)
+        flash("Settings saved and locked!" if lock else "Settings saved.", "success")
+        return redirect(url_for("my_settings"))
+
+    return render_template("my_settings.html", cfg=cfg)
 
 
 @app.route("/test-connection")

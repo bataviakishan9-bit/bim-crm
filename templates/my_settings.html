@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-sliders me-2"></i>My Email Settings</h4>
+    <small class="text-muted">Configure your personal Zoho Mail credentials for sending emails</small>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    {% if cfg.get('is_locked') %}
+    <!-- LOCKED VIEW -->
+    <div class="card mb-3">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid #f0f0f0;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-lock-fill" style="color:#D4A017;font-size:20px;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">{{ current_user.display }}'s Settings</div>
+            <div style="font-size:12px;color:#888;">Settings are currently <strong style="color:#198754;">locked</strong></div>
+          </div>
+        </div>
+
+        <table class="table table-sm" style="font-size:13px;">
+          <tbody>
+            <tr><td style="color:#888;width:38%;">Sender Email</td>
+                <td><strong>{{ cfg.sender_email or '—' }}</strong></td></tr>
+            <tr><td style="color:#888;">Sender Name</td>
+                <td>{{ cfg.sender_name or '—' }}</td></tr>
+            <tr><td style="color:#888;">Zoho Client ID</td>
+                <td>{{ (cfg.zoho_client_id or '')[:12] }}{% if cfg.zoho_client_id|length > 12 %}…{% endif %}</td></tr>
+            <tr><td style="color:#888;">Zoho Account ID</td>
+                <td>{{ cfg.zoho_account_id or '—' }}</td></tr>
+            <tr><td style="color:#888;">Zoho DC</td>
+                <td>{{ cfg.zoho_dc or 'in' }}</td></tr>
+            <tr><td style="color:#888;">Refresh Token</td>
+                <td>{{ '●●●●●●●●●●●●' if cfg.zoho_refresh_token else '—' }}</td></tr>
+            <tr><td style="color:#888;">Client Secret</td>
+                <td>{{ '●●●●●●●●●●●●' if cfg.zoho_client_secret else '—' }}</td></tr>
+            <tr><td style="color:#888;">Last updated</td>
+                <td style="font-size:11px;color:#aaa;">{{ cfg.updated_at or '—' }}</td></tr>
+          </tbody>
+        </table>
+
+        <form method="POST" action="/my-settings" class="mt-3">
+          <input type="hidden" name="action" value="unlock">
+          <button type="submit" class="btn btn-outline-warning btn-sm">
+            <i class="bi bi-unlock me-1"></i> Unlock to Edit
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0" style="background:#e8f5e9;">
+      <div class="card-body py-3 px-4" style="font-size:13px;color:#1b5e20;">
+        <i class="bi bi-check-circle-fill me-1"></i>
+        Your credentials are active. Emails you send will use <strong>{{ cfg.sender_email }}</strong>.
+      </div>
+    </div>
+
+    {% else %}
+    <!-- EDIT FORM -->
+    <div class="card">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid #f0f0f0;">
+          <div style="width:44px;height:44px;border-radius:50%;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+            <i class="bi bi-envelope-fill" style="color:#fff;font-size:20px;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;">{{ current_user.display }}'s Email Settings</div>
+            <div style="font-size:12px;color:#888;">These credentials will be used when <strong>you</strong> send emails</div>
+          </div>
+        </div>
+
+        <form method="POST" action="/my-settings" id="settingsForm">
+          <input type="hidden" name="action" value="save">
+
+          <!-- SENDER INFO -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">
+              <i class="bi bi-envelope text-primary me-1"></i> Your Sender Email
+            </label>
+            <input type="email" name="sender_email" class="form-control form-control-sm"
+                   value="{{ cfg.sender_email or '' }}"
+                   placeholder="yourname@biminfrasolutions.in" required>
+            <div class="form-text">This is the FROM address recipients will see.</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">
+              <i class="bi bi-person-badge text-primary me-1"></i> Your Sender Name
+            </label>
+            <input type="text" name="sender_name" class="form-control form-control-sm"
+                   value="{{ cfg.sender_name or '' }}"
+                   placeholder="Your Name — BIM Infra Solutions">
+          </div>
+
+          <hr class="my-3">
+          <div class="mb-2" style="font-size:12px;font-weight:700;color:#1B3A6B;text-transform:uppercase;letter-spacing:0.5px;">
+            <i class="bi bi-key me-1"></i> Zoho Mail API Credentials
+          </div>
+          <div class="alert alert-info py-2 px-3 mb-3" style="font-size:12px;">
+            Get these from <strong>Zoho API Console → Self Client → Generate Token</strong>.
+            Each team member has their own Zoho Mail account credentials.
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Client ID</label>
+            <input type="text" name="zoho_client_id" class="form-control form-control-sm font-monospace"
+                   value="{{ cfg.zoho_client_id or '' }}"
+                   placeholder="1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXX">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Client Secret</label>
+            <div class="input-group input-group-sm">
+              <input type="password" name="zoho_client_secret" id="secretField"
+                     class="form-control font-monospace"
+                     value="{{ cfg.zoho_client_secret or '' }}"
+                     placeholder="••••••••••••••••">
+              <button type="button" class="btn btn-outline-secondary" onclick="togglePw('secretField', this)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Refresh Token</label>
+            <div class="input-group input-group-sm">
+              <input type="password" name="zoho_refresh_token" id="tokenField"
+                     class="form-control font-monospace"
+                     value="{{ cfg.zoho_refresh_token or '' }}"
+                     placeholder="••••••••••••••••">
+              <button type="button" class="btn btn-outline-secondary" onclick="togglePw('tokenField', this)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Mail Account ID</label>
+              <input type="text" name="zoho_account_id" class="form-control form-control-sm font-monospace"
+                     value="{{ cfg.zoho_account_id or '' }}"
+                     placeholder="e.g. 7069XXXXXXXXX">
+              <div class="form-text" style="font-size:11px;">Find in Zoho Mail → Settings → API</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Zoho DC (Data Center)</label>
+              <select name="zoho_dc" class="form-select form-select-sm">
+                <option value="in"  {% if cfg.zoho_dc == 'in'  or not cfg.zoho_dc %}selected{% endif %}>India (in)</option>
+                <option value="com" {% if cfg.zoho_dc == 'com' %}selected{% endif %}>US (com)</option>
+                <option value="eu"  {% if cfg.zoho_dc == 'eu'  %}selected{% endif %}>Europe (eu)</option>
+                <option value="com.au" {% if cfg.zoho_dc == 'com.au' %}selected{% endif %}>Australia (com.au)</option>
+              </select>
+            </div>
+          </div>
+
+          <hr class="my-3">
+
+          <!-- LOCK OPTION -->
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" name="lock" id="lockCheck" value="on" checked>
+            <label class="form-check-label" style="font-size:13px;" for="lockCheck">
+              <i class="bi bi-lock-fill text-warning me-1"></i>
+              <strong>Lock settings after saving</strong>
+              <span class="text-muted" style="font-size:11px;"> — prevents accidental changes</span>
+            </label>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-bim flex-grow-1">
+              <i class="bi bi-check-lg me-1"></i> Save Settings
+            </button>
+            <a href="/" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+    {% if not cfg %}
+    <div class="card border-0 mt-3" style="background:#fff8e1;">
+      <div class="card-body py-3 px-4" style="font-size:12px;color:#e65100;">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        No credentials saved yet. Without your own credentials, emails will use the global Zoho account.
+      </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+function togglePw(fieldId, btn) {
+  const input = document.getElementById(fieldId);
+  const icon  = btn.querySelector('i');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+</script>
+
+{% endblock %}

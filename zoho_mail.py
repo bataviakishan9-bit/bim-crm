@@ -62,6 +62,26 @@ class ZohoMailClient:
         self._token_expiry = time.time() + data.get("expires_in", 3600)
         log.info("Zoho Mail access token refreshed.")
 
+    def _get_token_for(self, client_id: str, client_secret: str, refresh_token: str, dc: str) -> str:
+        """Get access token using specific credentials (per-user support)."""
+        # Use cached token only when using global credentials
+        global_cid = os.getenv("ZOHO_CLIENT_ID")
+        if client_id == global_cid:
+            return self.get_access_token()
+        # Per-user: always fetch a fresh token (no cache for now)
+        url = f"https://accounts.zoho.{dc}/oauth/v2/token"
+        r = requests.post(url, params={
+            "grant_type"   : "refresh_token",
+            "client_id"    : client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+        }, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        if "access_token" not in data:
+            raise Exception(f"Token refresh failed: {data}")
+        return data["access_token"]
+
     def _upload_attachment(self, token: str, account_id: str, dc: str, file_path: str) -> str | None:
         """Upload a file to Zoho Mail and return the attachment storeName."""
         try:
@@ -82,21 +102,31 @@ class ZohoMailClient:
             log.warning("Attachment upload error: %s", e)
             return None
 
-    def send_email(self, to_address: str, subject: str, html_body: str, attach_portfolio: bool = False) -> bool:
-        account_id = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "")
-        dc         = os.getenv("ZOHO_DC", "in")
+    def send_email(self, to_address: str, subject: str, html_body: str,
+                   attach_portfolio: bool = False, user_settings: dict = None) -> bool:
+        # Use per-user credentials if provided, else fall back to .env globals
+        s = user_settings or {}
+        client_id     = s.get("zoho_client_id")     or os.getenv("ZOHO_CLIENT_ID")
+        client_secret = s.get("zoho_client_secret") or os.getenv("ZOHO_CLIENT_SECRET")
+        refresh_token = s.get("zoho_refresh_token") or os.getenv("ZOHO_REFRESH_TOKEN")
+        account_id    = s.get("zoho_account_id")    or os.getenv("ZOHO_MAIL_ACCOUNT_ID", "")
+        dc            = s.get("zoho_dc")            or os.getenv("ZOHO_DC", "in")
+        sender_email  = s.get("sender_email")       or SENDER_EMAIL
+        sender_name   = s.get("sender_name")        or SENDER_NAME
+
         if not account_id:
-            log.error("ZOHO_MAIL_ACCOUNT_ID not set in .env")
+            log.error("ZOHO_MAIL_ACCOUNT_ID not set")
             return False
-        if not os.getenv("ZOHO_CLIENT_ID") or not os.getenv("ZOHO_REFRESH_TOKEN"):
-            log.error("Zoho credentials missing in .env")
+        if not client_id or not refresh_token:
+            log.error("Zoho credentials missing")
             return False
 
-        token = self.get_access_token()
+        # Get token using the correct credentials for this user
+        token = self._get_token_for(client_id, client_secret, refresh_token, dc)
         url   = f"https://mail.zoho.{dc}/api/accounts/{account_id}/messages"
 
         payload = {
-            "fromAddress": SENDER_EMAIL,
+            "fromAddress": sender_email,
             "toAddress"  : to_address,
             "subject"    : subject,
             "content"    : html_body,
@@ -130,7 +160,7 @@ class ZohoMailClient:
         log.error("Email failed [%s]: %s", r.status_code, r.text)
         return False
 
-    def send_sequence_email(self, lead: dict, step: int) -> tuple:
+    def send_sequence_email(self, lead: dict, step: int, user_settings: dict = None) -> tuple:
         """
         Send the correct sequence email for a lead.
         Returns (success: bool, subject: str, html_body: str)
@@ -152,6 +182,7 @@ class ZohoMailClient:
             subject=subject,
             html_body=html_body,
             attach_portfolio=attach,
+            user_settings=user_settings,
         )
         return success, subject, html_body
 

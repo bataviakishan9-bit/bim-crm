@@ -214,6 +214,88 @@ def init_db():
             )
         """)
 
+    # user_settings table (PostgreSQL)
+    if _is_pg():
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS user_settings (
+                username        TEXT PRIMARY KEY,
+                sender_email    TEXT,
+                sender_name     TEXT,
+                zoho_client_id     TEXT,
+                zoho_client_secret TEXT,
+                zoho_refresh_token TEXT,
+                zoho_dc            TEXT DEFAULT 'in',
+                zoho_account_id    TEXT,
+                is_locked          INTEGER DEFAULT 0,
+                updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    else:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS user_settings (
+                username        TEXT PRIMARY KEY,
+                sender_email    TEXT,
+                sender_name     TEXT,
+                zoho_client_id     TEXT,
+                zoho_client_secret TEXT,
+                zoho_refresh_token TEXT,
+                zoho_dc            TEXT DEFAULT 'in',
+                zoho_account_id    TEXT,
+                is_locked          INTEGER DEFAULT 0,
+                updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    conn.commit()
+    conn.close()
+
+
+# ── USER SETTINGS ──────────────────────────────────────────────────────────────
+
+def get_user_settings(username: str) -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM user_settings WHERE username = ?"), (username,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return _fetchone(row)
+    return {}
+
+
+def save_user_settings(username: str, data: dict):
+    conn = get_db()
+    c = conn.cursor()
+    existing = get_user_settings(username)
+    if existing:
+        sql = _named("""
+            UPDATE user_settings SET
+                sender_email       = :sender_email,
+                sender_name        = :sender_name,
+                zoho_client_id     = :zoho_client_id,
+                zoho_client_secret = :zoho_client_secret,
+                zoho_refresh_token = :zoho_refresh_token,
+                zoho_dc            = :zoho_dc,
+                zoho_account_id    = :zoho_account_id,
+                is_locked          = :is_locked,
+                updated_at         = :updated_at
+            WHERE username = :username
+        """)
+    else:
+        sql = _named("""
+            INSERT INTO user_settings (
+                username, sender_email, sender_name,
+                zoho_client_id, zoho_client_secret, zoho_refresh_token,
+                zoho_dc, zoho_account_id, is_locked, updated_at
+            ) VALUES (
+                :username, :sender_email, :sender_name,
+                :zoho_client_id, :zoho_client_secret, :zoho_refresh_token,
+                :zoho_dc, :zoho_account_id, :is_locked, :updated_at
+            )
+        """)
+    data["username"] = username
+    data["updated_at"] = datetime.utcnow().isoformat()
+    c.execute(sql, data)
     conn.commit()
     conn.close()
 
