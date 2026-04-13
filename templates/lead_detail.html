@@ -151,7 +151,7 @@
                   <span class="badge ms-1" style="background:#c62828;color:#fff;font-size:10px;">BOUNCED</span>
                 {% endif %}
               </td>
-              <td style="font-size:12px;color:#888;">{{ log.sent_at[:16] }}</td>
+              <td style="font-size:12px;color:#888;">{{ log.sent_at | string | truncate(16, True, '') }}</td>
               <td>
                 {% if log.bounced %}
                   <span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">
@@ -388,7 +388,7 @@
             {% for task in tasks %}
             <tr {% if task.status == 'Completed' %}style="opacity:0.45;"{% endif %}>
               <td class="ps-3" style="font-size:13px;">{{ task.subject }}</td>
-              <td style="font-size:12px;color:#888;">{{ task.due_date[:16] if task.due_date else '—' }}</td>
+              <td style="font-size:12px;color:#888;">{{ task.due_date | string | truncate(16, True, '') if task.due_date else '—' }}</td>
               <td>
                 <span class="badge" style="font-size:11px;background:
                   {% if task.priority == 'High' %}#b71c1c

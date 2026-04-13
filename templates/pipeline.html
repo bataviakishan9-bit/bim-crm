@@ -140,7 +140,7 @@
 
           <div class="card-seq">
             Email {{ lead.email_sequence_step }}/3 sent
-            {% if lead.last_email_sent %}· {{ lead.last_email_sent[:10] }}{% endif %}
+            {% if lead.last_email_sent %}· {{ lead.last_email_sent | string | truncate(10, True, '') }}{% endif %}
           </div>
 
           <!-- Hover actions -->
