@@ -174,14 +174,11 @@ class ZohoMailClient:
         if not subject:
             return False, "", ""
 
-        # Attach portfolio PDF on step 0 (first email) and step 1 (follow-up)
-        attach = step in (0, 1)
-
         success = self.send_email(
             to_address=lead["email"],
             subject=subject,
             html_body=html_body,
-            attach_portfolio=attach,
+            attach_portfolio=False,
             user_settings=user_settings,
         )
         return success, subject, html_body
@@ -503,7 +500,15 @@ def get_portfolio_link(template: str) -> str:
 
 
 def get_email_content(template: str, step: int, first_name: str, company: str) -> tuple:
-    """Returns (subject, html_body) for the given template + step."""
+    """Returns (subject, html_body) for the given template + step.
+    Checks database for custom overrides first, falls back to built-in templates."""
+    import database as _db
+    custom = _db.get_email_template(template, step)
+    if custom:
+        raw_body = custom["body"].replace("{first_name}", first_name).replace("{company}", company)
+        raw_subj = custom["subject"].replace("{first_name}", first_name).replace("{company}", company)
+        port_link = get_portfolio_link(template)
+        return raw_subj, _wrap_email(raw_body, port_link)
 
     # ── TEMPLATE A — Enterprise GC / Engineering Firms (USA/Canada/Australia) ──
     A = [

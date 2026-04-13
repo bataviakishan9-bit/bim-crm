@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-envelope-paper me-2"></i>Email Templates</h4>
+    <small class="text-muted">Edit subject lines and email body for each template &amp; step. Use <code>{first_name}</code> and <code>{company}</code> as placeholders.</small>
+  </div>
+</div>
+
+<div class="row g-0" style="min-height:80vh;">
+
+  <!-- ── LEFT SIDEBAR ── -->
+  <div class="col-md-3 col-lg-2" style="border-right:1px solid #e5e7eb;">
+    <div style="background:#fff;border-radius:10px 0 0 10px;padding:12px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);min-height:100%;">
+      <div style="padding:10px 16px 6px;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.6px;">Templates</div>
+      {% for key, info in templates.items() %}
+      <a href="/templates?t={{ key }}"
+         class="d-flex align-items-start gap-2 px-3 py-3 text-decoration-none"
+         style="border-left:3px solid {{ '#D4A017' if active == key else 'transparent' }};
+                background:{{ 'rgba(212,160,23,0.07)' if active == key else 'transparent' }};
+                transition:background 0.15s;">
+        <i class="bi {{ info.icon }} mt-1"
+           style="font-size:16px;color:{{ '#D4A017' if active == key else '#888' }};flex-shrink:0;"></i>
+        <div>
+          <div style="font-size:13px;font-weight:{{ '700' if active == key else '600' }};color:{{ '#1B3A6B' if active == key else '#444' }};">
+            {{ info.name }}
+          </div>
+          <div style="font-size:11px;color:#999;line-height:1.4;margin-top:2px;">{{ info.desc }}</div>
+        </div>
+      </a>
+      {% endfor %}
+
+      <hr style="margin:10px 12px;border-color:#eee;">
+      <div style="padding:8px 16px;font-size:11px;color:#bbb;">
+        <i class="bi bi-info-circle me-1"></i>Custom saves override defaults
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN CONTENT ── -->
+  <div class="col-md-9 col-lg-10" style="background:#f8f9fa;padding:20px 24px;border-radius:0 10px 10px 0;">
+
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <div style="width:36px;height:36px;border-radius:8px;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+        <i class="bi {{ templates[active].icon }}" style="color:#D4A017;font-size:16px;"></i>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#1B3A6B;">{{ templates[active].name }}</div>
+        <div style="font-size:12px;color:#888;">{{ templates[active].desc }}</div>
+      </div>
+      {% if steps | selectattr('is_custom') | list | length > 0 %}
+      <span class="badge ms-2" style="background:#e8f5e9;color:#1b5e20;font-size:11px;">
+        <i class="bi bi-check-circle me-1"></i>{{ steps | selectattr('is_custom') | list | length }} custom step(s)
+      </span>
+      {% endif %}
+    </div>
+
+    <!-- Tabs for steps -->
+    <ul class="nav nav-tabs mb-0" style="border-bottom:2px solid #dee2e6;">
+      {% for s in steps %}
+      <li class="nav-item">
+        <button class="nav-link {% if loop.first %}active{% endif %} position-relative"
+                data-bs-toggle="tab" data-bs-target="#step{{ s.step }}"
+                style="font-size:13px;font-weight:600;">
+          Step {{ s.step + 1 }}
+          {% if s.is_custom %}
+          <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill"
+                style="background:#D4A017;font-size:9px;padding:2px 5px;">✎</span>
+          {% endif %}
+        </button>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="tab-content">
+      {% for s in steps %}
+      <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="step{{ s.step }}">
+        <div class="card mt-0" style="border-radius:0 0 10px 10px;border-top:none;">
+          <div class="card-body p-4">
+
+            {% if s.is_custom %}
+            <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:12px;">
+              <i class="bi bi-pencil-fill"></i>
+              <span>This step has a <strong>custom override</strong> saved in the database.</span>
+              <form method="POST" action="/templates/reset" class="ms-auto mb-0">
+                <input type="hidden" name="template_key" value="{{ active }}">
+                <input type="hidden" name="step" value="{{ s.step }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px;"
+                        onclick="return confirm('Reset to default template?')">
+                  <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default
+                </button>
+              </form>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/templates/save">
+              <input type="hidden" name="template_key" value="{{ active }}">
+              <input type="hidden" name="step" value="{{ s.step }}">
+
+              <!-- Subject -->
+              <div class="mb-3">
+                <label class="form-label fw-semibold" style="font-size:13px;">
+                  <i class="bi bi-type me-1 text-primary"></i>Subject Line
+                </label>
+                <input type="text" name="subject" class="form-control"
+                       value="{{ s.subject }}" required
+                       style="font-size:13px;">
+                <div class="form-text" style="font-size:11px;">
+                  Use <code>{first_name}</code> and <code>{company}</code> as dynamic placeholders.
+                </div>
+              </div>
+
+              <!-- Body -->
+              <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label fw-semibold mb-0" style="font-size:13px;">
+                    <i class="bi bi-code-square me-1 text-primary"></i>Email Body (HTML)
+                  </label>
+                  <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                            style="font-size:11px;" onclick="togglePreview({{ s.step }})">
+                      <i class="bi bi-eye me-1"></i>Preview
+                    </button>
+                  </div>
+                </div>
+                <textarea name="body" id="body_{{ s.step }}" rows="16"
+                          class="form-control font-monospace"
+                          style="font-size:12px;line-height:1.6;resize:vertical;">{{ s.body }}</textarea>
+                <div class="form-text" style="font-size:11px;">
+                  Full HTML supported. Use <code>{first_name}</code>, <code>{company}</code> for personalisation.
+                </div>
+              </div>
+
+              <!-- Preview Panel -->
+              <div id="preview_{{ s.step }}" class="mb-3 d-none">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label fw-semibold mb-0" style="font-size:13px;">
+                    <i class="bi bi-eye me-1"></i>Preview (placeholders replaced)
+                  </label>
+                  <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2"
+                          style="font-size:11px;" onclick="togglePreview({{ s.step }})">
+                    <i class="bi bi-x me-1"></i>Close
+                  </button>
+                </div>
+                <div id="preview_frame_{{ s.step }}"
+                     style="border:1px solid #dee2e6;border-radius:6px;padding:20px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;line-height:1.8;max-height:400px;overflow-y:auto;">
+                </div>
+              </div>
+
+              <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-bim">
+                  <i class="bi bi-check-lg me-1"></i>Save Step {{ s.step + 1 }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="insertPlaceholder('body_{{ s.step }}', '{first_name}')">
+                  + {first_name}
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="insertPlaceholder('body_{{ s.step }}', '{company}')">
+                  + {company}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Help card -->
+    <div class="card mt-4 border-0" style="background:#e8f4fd;">
+      <div class="card-body py-3 px-4" style="font-size:12px;color:#1565c0;">
+        <strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong>
+        Use <code>{first_name}</code> and <code>{company}</code> anywhere in subject or body — they get replaced automatically when each email is sent.
+        HTML tags are fully supported. Reset to default anytime without losing other steps.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function togglePreview(step) {
+  const panel = document.getElementById('preview_' + step);
+  const frame = document.getElementById('preview_frame_' + step);
+  const textarea = document.getElementById('body_' + step);
+  if (panel.classList.contains('d-none')) {
+    // Replace placeholders for visual preview
+    let html = textarea.value
+      .replace(/\{first_name\}/g, '<span style="background:#fff3cd;padding:0 2px;border-radius:2px;">Alex</span>')
+      .replace(/\{company\}/g, '<span style="background:#d1ecf1;padding:0 2px;border-radius:2px;">Acme Corp</span>');
+    frame.innerHTML = html;
+    panel.classList.remove('d-none');
+  } else {
+    panel.classList.add('d-none');
+  }
+}
+
+function insertPlaceholder(textareaId, placeholder) {
+  const ta = document.getElementById(textareaId);
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  ta.value = ta.value.substring(0, start) + placeholder + ta.value.substring(end);
+  ta.selectionStart = ta.selectionEnd = start + placeholder.length;
+  ta.focus();
+}
+</script>
+
+{% endblock %}

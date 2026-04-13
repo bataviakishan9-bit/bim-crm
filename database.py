@@ -246,6 +246,32 @@ def init_db():
             )
         """)
 
+    # email_templates table
+    if _is_pg():
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id           SERIAL PRIMARY KEY,
+                template_key TEXT NOT NULL,
+                step         INTEGER NOT NULL,
+                subject      TEXT NOT NULL,
+                body         TEXT NOT NULL,
+                updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(template_key, step)
+            )
+        """)
+    else:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_key TEXT NOT NULL,
+                step         INTEGER NOT NULL,
+                subject      TEXT NOT NULL,
+                body         TEXT NOT NULL,
+                updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(template_key, step)
+            )
+        """)
+
     conn.commit()
     conn.close()
 
@@ -296,6 +322,41 @@ def save_user_settings(username: str, data: dict):
     data["username"] = username
     data["updated_at"] = datetime.utcnow().isoformat()
     c.execute(sql, data)
+    conn.commit()
+    conn.close()
+
+
+# ── EMAIL TEMPLATES ───────────────────────────────────────────────────────────
+
+def get_all_email_templates() -> dict:
+    """Returns {(key, step): {subject, body}} for all saved custom templates."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT template_key, step, subject, body FROM email_templates ORDER BY template_key, step")
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return {(r["template_key"], r["step"]): r for r in rows}
+
+
+def get_email_template(template_key: str, step: int) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM email_templates WHERE template_key=? AND step=?"), (template_key, step))
+    row = c.fetchone()
+    conn.close()
+    return _fetchone(row) if row else None
+
+
+def save_email_template(template_key: str, step: int, subject: str, body: str):
+    conn = get_db()
+    c = conn.cursor()
+    existing = get_email_template(template_key, step)
+    if existing:
+        c.execute(_q("UPDATE email_templates SET subject=?, body=?, updated_at=? WHERE template_key=? AND step=?"),
+                  (subject, body, datetime.utcnow().isoformat(), template_key, step))
+    else:
+        c.execute(_q("INSERT INTO email_templates (template_key, step, subject, body, updated_at) VALUES (?,?,?,?,?)"),
+                  (template_key, step, subject, body, datetime.utcnow().isoformat()))
     conn.commit()
     conn.close()
 

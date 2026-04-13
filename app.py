@@ -868,6 +868,219 @@ def settings():
                            hunter_key=masked_hkey)
 
 
+TEMPLATE_LABELS = {
+    "A": {"name": "Template A", "desc": "Enterprise GC / Engineering Firms (USA/Canada/AU)", "icon": "bi-building"},
+    "B": {"name": "Template B", "desc": "Architecture Firms (USA/Germany/Europe)",            "icon": "bi-pencil-ruler"},
+    "C": {"name": "Template C", "desc": "Drone / Scan-to-BIM / Survey Firms",                 "icon": "bi-camera"},
+    "D": {"name": "Template D", "desc": "INFRA X / Geospatial / Survey (India)",               "icon": "bi-geo-alt"},
+}
+
+
+@app.route("/templates", methods=["GET"])
+@login_required
+def templates_list():
+    active = request.args.get("t", "A")
+    if active not in TEMPLATE_LABELS:
+        active = "A"
+
+    # Load saved DB templates into lookup: {(key,step): row}
+    saved = db.get_all_email_templates()
+
+    # Build display data: for active template, get subject/body for each step (DB or default)
+    from zoho_mail import get_email_content as _gec
+    steps_display = []
+    for step in range(3):
+        db_row = saved.get((active, step))
+        if db_row:
+            subject = db_row["subject"]
+            body    = db_row["body"]
+            is_custom = True
+        else:
+            # Load from built-in defaults (pass placeholder vars)
+            raw_subj, _ = _gec(active, step, "{first_name}", "{company}")
+            # Get raw body before wrapping — re-derive from zoho_mail internals
+            subject  = raw_subj
+            body     = _get_raw_body(active, step)
+            is_custom = False
+        steps_display.append({"step": step, "subject": subject, "body": body, "is_custom": is_custom})
+
+    return render_template("templates.html",
+                           templates=TEMPLATE_LABELS,
+                           active=active,
+                           steps=steps_display)
+
+
+@app.route("/templates/save", methods=["POST"])
+@login_required
+def save_template():
+    key     = request.form.get("template_key", "A")
+    step    = int(request.form.get("step", 0))
+    subject = request.form.get("subject", "").strip()
+    body    = request.form.get("body", "").strip()
+    if key not in TEMPLATE_LABELS or step not in (0, 1, 2):
+        flash("Invalid template.", "danger")
+        return redirect(url_for("templates_list"))
+    db.save_email_template(key, step, subject, body)
+    flash(f"Template {key} — Step {step+1} saved!", "success")
+    return redirect(url_for("templates_list", t=key))
+
+
+@app.route("/templates/reset", methods=["POST"])
+@login_required
+def reset_template():
+    key  = request.form.get("template_key", "A")
+    step = int(request.form.get("step", 0))
+    conn = db.get_db()
+    c = conn.cursor()
+    c.execute(db._q("DELETE FROM email_templates WHERE template_key=? AND step=?"), (key, step))
+    conn.commit()
+    conn.close()
+    flash(f"Template {key} — Step {step+1} reset to default.", "info")
+    return redirect(url_for("templates_list", t=key))
+
+
+def _get_raw_body(template_key: str, step: int) -> str:
+    """Extract raw (unwrapped) body from built-in zoho_mail templates."""
+    from zoho_mail import (PORTFOLIO_LINK, DRONE_PORTFOLIO_LINK, CALENDLY_LINK,
+                            WEBSITE, PHONE, TITLE, COMPANY_FULL)
+    fn, co = "{first_name}", "{company}"
+    pl = DRONE_PORTFOLIO_LINK if template_key in ("C", "D") else PORTFOLIO_LINK
+
+    A = [
+        f"""<p>Hi {{first_name}},</p>
+<p>I came across {{company}} and noticed you're handling significant construction/engineering projects — I wanted to reach out directly.</p>
+<p>I'm Kishan, Co-founder &amp; CFO at <strong>BIM INFRASOLUTIONS LLP</strong>. We're a technology-driven BIM consultancy with <strong>100+ projects delivered across USA, Canada, Germany, Australia and India</strong>.</p>
+<p>A quick question: when your BIM team hits capacity during peak project phases, what does {{company}} typically do — hire temps, delay, or push the in-house team harder?</p>
+<p>We step in as a seamless offshore extension:</p>
+<ul style="line-height:2;">
+    <li>Revit modelling — Architectural, Structural, MEP (LOD 200–500)</li>
+    <li>Clash detection &amp; BIM coordination (BIM 360 / ACC / Procore)</li>
+    <li>4D scheduling &amp; 5D quantity takeoffs</li>
+    <li>Scan-to-BIM from LiDAR / point clouds</li>
+    <li>Dynamo / automation scripts</li>
+</ul>
+<p>We're offering <strong>3 paid pilot slots this quarter</strong> — results in 48 hours, no long-term commitment.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Book a 30-Min Call</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Following up — wanted to share a project directly relevant to {{company}}.</p>
+<p>We recently completed BIM coordination for a <strong>high-rise in Canada</strong> (6,000 sqmt, LOD 300, full ARCHI + MEPF + Structure) — delivered in under 2 weeks, clash-free.</p>
+<p>We've also done a <strong>110 km floating tunnel for Parsons</strong> with a Dynamo-based automated alignment system that saved weeks of manual rework.</p>
+<p><strong>3 things that set us apart:</strong></p>
+<ul style="line-height:2;">
+    <li>360,000+ hours of BIM work delivered</li>
+    <li>54 million sqmt of assets digitalized</li>
+    <li>Onboarding in 48 hours — we match your Revit templates &amp; standards</li>
+</ul>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Schedule 30 Minutes</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>I'll keep this short — this is my last note.</p>
+<p>If BIM outsourcing ever comes up at {{company}} — whether for a single project, a capacity crunch, or an ongoing engagement — I'd love to be your first call.</p>
+<p>We have <strong>2 pilot slots remaining this quarter</strong> — a real project deliverable at a fixed rate, zero risk.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#D4A017;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Book a Final 30-Min Call</a></p>
+<p>Wishing {{company}} a great quarter ahead.</p>""",
+    ]
+    B = [
+        f"""<p>Hi {{first_name}},</p>
+<p>Architecture firms like {{company}} often deal with Revit workload peaks during design development and CD phases — the in-house team gets stretched thin.</p>
+<p>I'm Kishan, Co-founder &amp; CFO at <strong>BIM INFRASOLUTIONS LLP</strong>. We work as a dedicated BIM extension for architecture firms across USA, Germany, and Europe.</p>
+<p>Recent architecture work:</p>
+<ul style="line-height:2;">
+    <li><strong>Reutlingen City Hall, Germany</strong> — 70,000 sqmt full BIM model</li>
+    <li><strong>Nikko Hotel Düsseldorf</strong> — 40,000 sqmt Scan-to-BIM + coordination</li>
+    <li><strong>Bonn University</strong> — 30,000 sqmt LOD 400 Scan-to-BIM</li>
+    <li>60+ parametric Revit families (LOD 500)</li>
+</ul>
+<p>We work inside your standards — your Revit templates, your sheet naming, your family library.</p>
+<p><strong>Deliverable in 48 hours. Pilot project available this quarter.</strong></p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Book a 30-Min Call</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Following up — quick specifics on how we've helped firms similar to {{company}}.</p>
+<p><strong>What we handle:</strong></p>
+<ul style="line-height:2;">
+    <li>Revit CD documentation — floor plans, sections, elevations, details</li>
+    <li>Revit family creation (parametric, LOD 300–500)</li>
+    <li>BIM coordination — clash detection across ARCHI, MEPF, Structure</li>
+    <li>As-built to BIM (Scan-to-BIM, LOD 300–400)</li>
+    <li>BIM 360 / ACC project setup and management</li>
+</ul>
+<p>100+ international projects | 54M sqmt digitalized | 360K hours delivered</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Let's Talk — 30 Min Call</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Last note — I won't keep following up after this.</p>
+<p>If {{company}} ever needs BIM/Revit support — CD crunch, Scan-to-BIM, or coordination capacity — we're ready within 48 hours.</p>
+<p>Pilot offer: <strong>one real project deliverable at a fixed rate</strong>, only continue if satisfied.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#D4A017;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Book a Call Anytime</a></p>
+<p>Best of luck with your current projects, {{first_name}}.</p>""",
+    ]
+    C = [
+        f"""<p>Hi {{first_name}},</p>
+<p>If {{company}} works with drone surveys, LiDAR scans, or point cloud data — we convert raw scan data into accurate, fully coordinated BIM models.</p>
+<p>Recent Scan-to-BIM projects:</p>
+<ul style="line-height:2;">
+    <li><strong>Rochsburg Castle, Germany</strong> — 40,000 sqmt heritage, LOD 300</li>
+    <li><strong>Kampnagel Hamburg</strong> — 100,000 sqmt industrial renovation</li>
+    <li><strong>Bonn University</strong> — 30,000 sqmt, LOD 400</li>
+    <li><strong>Autobahn Viaduct</strong> — 500m historic bridge</li>
+    <li><strong>Nikko Hotel Düsseldorf</strong> — 40,000 sqmt full renovation</li>
+</ul>
+<p>Delivery: raw point cloud to finished Revit model in <strong>3–5 business days</strong>.</p>
+<p><strong>Paid pilot:</strong> send a sample scan, we deliver a BIM model. Pay only if satisfied.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Book a 30-Min Demo Call</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Quick follow-up — our standard Scan-to-BIM workflow for {{company}}'s projects:</p>
+<ol style="line-height:2;">
+    <li><strong>Receive</strong> — point cloud / E57 / RCP / drone data</li>
+    <li><strong>Register &amp; clean</strong> — align scans, remove noise</li>
+    <li><strong>Model</strong> — Revit model to your LOD (200–500)</li>
+    <li><strong>QC &amp; deliver</strong> — clash-free, your naming convention</li>
+</ol>
+<p>Turnaround: <strong>3–5 business days</strong>. We've digitalized <strong>54 million sqmt</strong> globally.</p>
+<p>Happy to do a <strong>free test conversion</strong> on a small sample scan.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">Schedule 30 Minutes</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>This is my last follow-up. If {{company}} has any scan data needing BIM conversion, or upcoming survey projects needing BIM deliverables, we'd love to be your partner.</p>
+<p><strong>Paid pilot, fixed price, satisfaction guaranteed. No lock-in.</strong></p>
+<p><a href="{CALENDLY_LINK}" style="background:#D4A017;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:8px;">One Last Call — 30 Min</a></p>
+<p>Wishing {{company}} great projects ahead.</p>""",
+    ]
+    D = [
+        f"""<p>Hi {{first_name}},</p>
+<p>{{company}}'s geospatial/survey work aligns closely with <strong>INFRA X</strong> — our site intelligence platform for large infrastructure projects.</p>
+<p><strong>Key capabilities:</strong></p>
+<ul style="line-height:2;">
+    <li><strong>Compare View</strong> — planned design vs. actual site condition, week by week</li>
+    <li><strong>One-desk monitoring</strong> — all sites, all zones, all teams on one dashboard</li>
+    <li><strong>Resource tracking</strong> — manpower, machinery, materials automatically logged</li>
+    <li><strong>Automated reports</strong> — volume calculations, milestone %, deviation alerts</li>
+    <li><strong>As-built documentation</strong> — orthomosaic maps, point clouds, 3D models</li>
+</ul>
+<p>Currently <strong>live at Khavada</strong> for <strong>Kalpataru Projects</strong> and <strong>Hitachi Energy India</strong>.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">Book a 30-Min Call</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Following up on INFRA X — here's what's running live at <strong>Khavada</strong> for Kalpataru and Hitachi Energy:</p>
+<ul style="line-height:2;">
+    <li>Compare View — any date, planned vs actual</li>
+    <li>One-desk monitoring — 500+ acres, one screen, updated weekly</li>
+    <li>Resource allocation — equipment, labour zones, materials tracked</li>
+    <li>Deviation alerts — flags issues before weekly review</li>
+    <li>Auto-generated client reports — every Monday morning</li>
+</ul>
+<p>For {{company}}, INFRA X adds the intelligence layer on top of your geospatial capability.</p>
+<p>We have <strong>3 partnership slots open</strong> with Survey of India empanelled firms this quarter.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">Schedule a 30-Min Demo</a></p>""",
+        f"""<p>Hi {{first_name}},</p>
+<p>Last note — brief.</p>
+<p>If {{company}} works on large infrastructure or renewable energy sites where clients struggle with ground progress visibility — <strong>INFRA X solves exactly that</strong>.</p>
+<p>One dashboard. Compare view. Resource allocation. Automated reports. Live at Khavada with Kalpataru and Hitachi Energy — a working, deployed solution.</p>
+<p>Open to partnership, white-label, or referral — whatever works for {{company}}.</p>
+<p><a href="{CALENDLY_LINK}" style="background:#D4A017;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;">One Final Call — 30 Min</a></p>
+<p>Wishing {{company}} great projects ahead.</p>""",
+    ]
+    mapping = {"A": A, "B": B, "C": C, "D": D}
+    steps = mapping.get(template_key, A)
+    return steps[step] if step < len(steps) else ""
+
+
 @app.route("/my-settings", methods=["GET", "POST"])
 @login_required
 def my_settings():
