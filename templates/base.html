@@ -117,6 +117,19 @@
       <i class="bi bi-envelope-paper"></i> Email Templates
     </a>
     <hr>
+    <a href="/instructions" class="nav-link {% if '/instructions' in request.path %}active{% endif %}">
+      <i class="bi bi-journal-text"></i> Instructions
+    </a>
+    <a href="/responsibilities" class="nav-link {% if '/responsibilities' in request.path %}active{% endif %}">
+      <i class="bi bi-person-check"></i> Responsibilities
+    </a>
+    <a href="/team-tasks" class="nav-link {% if '/team-tasks' in request.path %}active{% endif %}">
+      <i class="bi bi-list-task"></i> Team Tasks
+    </a>
+    <a href="/reminders" class="nav-link {% if '/reminders' in request.path %}active{% endif %}">
+      <i class="bi bi-bell"></i> Reminders
+    </a>
+    <hr>
     <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
       <i class="bi bi-gear"></i> Settings
     </a>

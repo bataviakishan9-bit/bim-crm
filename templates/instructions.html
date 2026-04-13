@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-journal-text me-2"></i>Internal Instructions</h4>
+    <small class="text-muted">Pinned notes, SOPs, and team guidelines</small>
+  </div>
+  <button class="btn btn-bim btn-sm" data-bs-toggle="modal" data-bs-target="#newNoteModal">
+    <i class="bi bi-plus-lg me-1"></i> Post Instruction
+  </button>
+</div>
+
+{% if not notes %}
+<div class="card" style="border:2px dashed #dee2e6;">
+  <div class="card-body text-center py-5" style="color:#aaa;">
+    <i class="bi bi-journal-text" style="font-size:40px;"></i>
+    <p class="mt-3 mb-0">No instructions yet. Post the first one!</p>
+  </div>
+</div>
+{% endif %}
+
+{% for note in notes %}
+<div class="card mb-3 {% if note.is_pinned %}border-warning{% endif %}" style="{% if note.is_pinned %}border-width:2px;{% endif %}">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          {% if note.is_pinned %}
+          <span class="badge" style="background:#fff3cd;color:#856404;font-size:11px;"><i class="bi bi-pin-fill me-1"></i>Pinned</span>
+          {% endif %}
+          <h5 class="mb-0" style="font-size:15px;font-weight:700;color:#1B3A6B;">{{ note.title }}</h5>
+        </div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:10px;">
+          Posted by <strong>{{ team.get(note.created_by, note.created_by) }}</strong>
+          · {{ note.created_at | string | truncate(16, True, '') }}
+        </div>
+        <div style="font-size:14px;line-height:1.8;white-space:pre-wrap;color:#333;">{{ note.body }}</div>
+      </div>
+      <div class="d-flex flex-column gap-1 ms-2">
+        <!-- Pin toggle -->
+        <form method="POST" action="/instructions">
+          <input type="hidden" name="action" value="toggle_pin">
+          <input type="hidden" name="note_id" value="{{ note.id }}">
+          <button type="submit" class="btn btn-sm {{ 'btn-warning' if note.is_pinned else 'btn-outline-secondary' }}"
+                  style="font-size:11px;padding:3px 8px;" title="{{ 'Unpin' if note.is_pinned else 'Pin' }}">
+            <i class="bi bi-pin{% if not note.is_pinned %}-angle{% endif %}"></i>
+          </button>
+        </form>
+        <!-- Edit -->
+        <button class="btn btn-sm btn-outline-primary" style="font-size:11px;padding:3px 8px;"
+                onclick="openEdit({{ note.id }}, {{ note.title | tojson }}, {{ note.body | tojson }}, {{ note.is_pinned }})"
+                title="Edit">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <!-- Delete -->
+        <form method="POST" action="/instructions" onsubmit="return confirm('Delete this instruction?')">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="note_id" value="{{ note.id }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:3px 8px;" title="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- New Note Modal -->
+<div class="modal fade" id="newNoteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-journal-plus me-2"></i>Post Instruction</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/instructions">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Title</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Email SOP, Daily Checklist..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Content</label>
+            <textarea name="body" class="form-control" rows="8" placeholder="Write the instruction here..." required></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="pin" id="pinCheck" value="1">
+            <label class="form-check-label" for="pinCheck" style="font-size:13px;">
+              <i class="bi bi-pin-fill text-warning me-1"></i> Pin this instruction (appears at top)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim btn-sm"><i class="bi bi-check-lg me-1"></i>Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editNoteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Instruction</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/instructions">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="note_id" id="editNoteId">
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Title</label>
+            <input type="text" name="title" id="editNoteTitle" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Content</label>
+            <textarea name="body" id="editNoteBody" class="form-control" rows="8"></textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="pin" id="editPinCheck" value="1">
+            <label class="form-check-label" for="editPinCheck" style="font-size:13px;">
+              <i class="bi bi-pin-fill text-warning me-1"></i> Pin
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim btn-sm"><i class="bi bi-check-lg me-1"></i>Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openEdit(id, title, body, pinned) {
+  document.getElementById('editNoteId').value = id;
+  document.getElementById('editNoteTitle').value = title;
+  document.getElementById('editNoteBody').value = body;
+  document.getElementById('editPinCheck').checked = pinned == 1;
+  new bootstrap.Modal(document.getElementById('editNoteModal')).show();
+}
+</script>
+{% endblock %}

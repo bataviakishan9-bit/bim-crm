@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-list-task me-2"></i>Team Tasks</h4>
+    <small class="text-muted">Assign tasks to team members — lead-linked or standalone. Email sent on assignment.</small>
+  </div>
+  <button class="btn btn-bim btn-sm" data-bs-toggle="modal" data-bs-target="#newTaskModal">
+    <i class="bi bi-plus-lg me-1"></i> Assign Task
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <span style="font-size:12px;color:#888;">Filter by:</span>
+  <a href="/team-tasks" class="btn btn-sm {{ 'btn-bim' if not filter_user and not filter_status else 'btn-outline-secondary' }}">All</a>
+  {% for username, display in team.items() %}
+  <a href="/team-tasks?user={{ username }}"
+     class="btn btn-sm {{ 'btn-bim' if filter_user == username else 'btn-outline-secondary' }}">
+    {{ display }}
+  </a>
+  {% endfor %}
+  <span class="ms-2" style="font-size:12px;color:#888;">Status:</span>
+  {% for s in ['Pending','In Progress','Done'] %}
+  <a href="/team-tasks?status={{ s }}"
+     class="btn btn-sm {{ 'btn-bim' if filter_status == s else 'btn-outline-secondary' }}">{{ s }}</a>
+  {% endfor %}
+</div>
+
+{% set priority_colors = {'High':'#c62828','Medium':'#e65100','Low':'#2e7d32'} %}
+{% set status_bg = {'Pending':'#fff3e0','In Progress':'#e3f2fd','Done':'#e8f5e9','Cancelled':'#f5f5f5'} %}
+{% set status_color = {'Pending':'#e65100','In Progress':'#1565c0','Done':'#2e7d32','Cancelled':'#757575'} %}
+
+{% if not tasks %}
+<div class="card" style="border:2px dashed #dee2e6;">
+  <div class="card-body text-center py-5" style="color:#aaa;">
+    <i class="bi bi-list-task" style="font-size:40px;"></i>
+    <p class="mt-3 mb-0">No tasks found. Assign one!</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+{% for task in tasks %}
+<div class="col-md-6">
+  <div class="card h-100" style="border-left:4px solid {{ priority_colors.get(task.priority,'#888') }};">
+    <div class="card-body p-3">
+      <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+        <div class="fw-bold" style="font-size:14px;color:#1B3A6B;">{{ task.title }}</div>
+        <span class="badge" style="background:{{ status_bg.get(task.status,'#eee') }};color:{{ status_color.get(task.status,'#555') }};font-size:11px;white-space:nowrap;">
+          {{ task.status }}
+        </span>
+      </div>
+      {% if task.description %}
+      <p style="font-size:12px;color:#666;margin-bottom:6px;">{{ task.description }}</p>
+      {% endif %}
+      <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:12px;color:#888;">
+        <span><i class="bi bi-person me-1"></i>
+          {{ 'Everyone' if task.assigned_to == 'all' else team.get(task.assigned_to, task.assigned_to) }}
+        </span>
+        <span><i class="bi bi-person-fill me-1" style="color:#1B3A6B;"></i>
+          {{ team.get(task.assigned_by, task.assigned_by) }}
+        </span>
+        {% if task.due_date %}
+        <span><i class="bi bi-calendar me-1"></i>{{ task.due_date | string | truncate(10,True,'') }}</span>
+        {% endif %}
+        {% if task.reminder_at %}
+        <span><i class="bi bi-bell me-1" style="color:{{ '#c62828' if task.reminder_sent else '#D4A017' }};"></i>
+          {{ 'Reminder sent' if task.reminder_sent else task.reminder_at | string | truncate(10,True,'') }}
+        </span>
+        {% endif %}
+        <span class="badge" style="background:#f0f0f0;color:#555;font-size:10px;">{{ task.priority }}</span>
+        {% if task.lead_fname %}
+        <span><i class="bi bi-person-lines-fill me-1"></i>{{ task.lead_fname }} {{ task.lead_lname or '' }} ({{ task.lead_company or '' }})</span>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <form method="POST" action="/team-tasks" class="d-flex gap-2 align-items-center flex-grow-1">
+          <input type="hidden" name="action" value="status">
+          <input type="hidden" name="tid" value="{{ task.id }}">
+          <select name="status" class="form-select form-select-sm" onchange="this.form.submit()"
+                  style="font-size:11px;max-width:140px;">
+            {% for s in ['Pending','In Progress','Done','Cancelled'] %}
+            <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </form>
+        <form method="POST" action="/team-tasks" onsubmit="return confirm('Delete task?')">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="tid" value="{{ task.id }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:11px;padding:3px 8px;">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+</div>
+
+<!-- New Task Modal -->
+<div class="modal fade" id="newTaskModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-list-task me-2"></i>Assign Task</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/team-tasks">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold" style="font-size:13px;">Task Title</label>
+              <input type="text" name="title" class="form-control" placeholder="What needs to be done?" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold" style="font-size:13px;">Priority</label>
+              <select name="priority" class="form-select">
+                <option>Medium</option>
+                <option>High</option>
+                <option>Low</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:13px;">Description</label>
+              <textarea name="description" class="form-control" rows="3" placeholder="Details, context, steps..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">Assign To</label>
+              <select name="assigned_to" class="form-select" required>
+                <option value="">— Select —</option>
+                <option value="all">Everyone</option>
+                {% for username, display in team.items() %}
+                <option value="{{ username }}">{{ display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">Related Lead (optional)</label>
+              <select name="lead_id" class="form-select">
+                <option value="">— None —</option>
+                {% for lead in all_leads %}
+                <option value="{{ lead.id }}">{{ lead.first_name }} {{ lead.last_name or '' }} — {{ lead.company or '' }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">Due Date</label>
+              <input type="datetime-local" name="due_date" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">
+                <i class="bi bi-bell text-warning me-1"></i>Reminder Date/Time
+              </label>
+              <input type="datetime-local" name="reminder_at" class="form-control">
+              <div class="form-text" style="font-size:11px;">Email reminder will fire when this time is reached (on next page visit).</div>
+            </div>
+          </div>
+          <div class="alert alert-info py-2 px-3 mt-3" style="font-size:12px;">
+            <i class="bi bi-envelope me-1"></i> An email notification is sent to the assigned person immediately.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim btn-sm"><i class="bi bi-check-lg me-1"></i>Assign & Notify</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

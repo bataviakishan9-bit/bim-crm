@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-bell me-2"></i>Reminders</h4>
+    <small class="text-muted">Upcoming task reminders. Emails auto-fire when reminder time is reached.</small>
+  </div>
+  <a href="/team-tasks" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-list-task me-1"></i> Manage Tasks
+  </a>
+</div>
+
+{% set now_str = now.strftime('%Y-%m-%dT%H:%M') if now is defined else '' %}
+
+{% set with_reminders = tasks | selectattr('reminder_at') | list %}
+{% set no_reminder    = tasks | rejectattr('reminder_at') | list %}
+
+{% if not with_reminders %}
+<div class="card" style="border:2px dashed #dee2e6;">
+  <div class="card-body text-center py-5" style="color:#aaa;">
+    <i class="bi bi-bell-slash" style="font-size:40px;"></i>
+    <p class="mt-3 mb-0">No reminders set. Add a reminder date when creating a task.</p>
+  </div>
+</div>
+{% else %}
+
+<!-- Upcoming reminders -->
+<div class="card mb-4">
+  <div class="card-header" style="background:#1B3A6B;color:#fff;font-size:13px;">
+    <i class="bi bi-bell-fill me-2"></i>Tasks with Reminders
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="ps-3">Task</th>
+          <th>Assigned To</th>
+          <th>Due Date</th>
+          <th>Reminder At</th>
+          <th>Status</th>
+          <th>Reminder</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in with_reminders | sort(attribute='reminder_at') %}
+        {% set rem_str = task.reminder_at | string | truncate(16,True,'') %}
+        <tr style="{% if task.status == 'Done' %}opacity:0.45;{% endif %}">
+          <td class="ps-3 fw-semibold">
+            {{ task.title }}
+            {% if task.lead_fname %}
+            <br><small style="color:#888;font-weight:400;">Lead: {{ task.lead_fname }} {{ task.lead_lname or '' }}</small>
+            {% endif %}
+          </td>
+          <td>{{ 'Everyone' if task.assigned_to == 'all' else team.get(task.assigned_to, task.assigned_to) }}</td>
+          <td style="color:#888;">{{ task.due_date | string | truncate(10,True,'') if task.due_date else '—' }}</td>
+          <td>
+            <span style="color:{{ '#c62828' if task.reminder_sent else '#1B3A6B' }};font-weight:600;">
+              {{ rem_str }}
+            </span>
+          </td>
+          <td>
+            <span class="badge" style="font-size:11px;
+              background:{{ '#e8f5e9' if task.status=='Done' else '#fff3e0' }};
+              color:{{ '#2e7d32' if task.status=='Done' else '#e65100' }};">
+              {{ task.status }}
+            </span>
+          </td>
+          <td>
+            {% if task.reminder_sent %}
+              <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:11px;">
+                <i class="bi bi-check-circle me-1"></i>Sent
+              </span>
+            {% else %}
+              <span class="badge" style="background:#fff3cd;color:#856404;font-size:11px;">
+                <i class="bi bi-clock me-1"></i>Pending
+              </span>
+            {% endif %}
+          </td>
+          <td>
+            {% if not task.reminder_sent %}
+            <form method="POST" action="/reminders/send-now/{{ task.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:11px;padding:2px 8px;"
+                      title="Send reminder email now">
+                <i class="bi bi-send me-1"></i>Send Now
+              </button>
+            </form>
+            {% else %}
+            <form method="POST" action="/reminders/send-now/{{ task.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:11px;padding:2px 8px;"
+                      title="Resend reminder">
+                <i class="bi bi-arrow-repeat me-1"></i>Resend
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tasks without reminders -->
+{% if no_reminder %}
+<div class="card">
+  <div class="card-header" style="font-size:13px;background:#f8f9fa;">
+    <i class="bi bi-list-task me-2 text-muted"></i>Tasks Without Reminders
+    <span class="badge ms-2" style="background:#dee2e6;color:#555;">{{ no_reminder|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="ps-3">Task</th>
+          <th>Assigned To</th>
+          <th>Due Date</th>
+          <th>Priority</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in no_reminder %}
+        <tr style="{% if task.status == 'Done' %}opacity:0.45;{% endif %}">
+          <td class="ps-3">{{ task.title }}</td>
+          <td>{{ 'Everyone' if task.assigned_to == 'all' else team.get(task.assigned_to, task.assigned_to) }}</td>
+          <td style="color:#888;">{{ task.due_date | string | truncate(10,True,'') if task.due_date else '—' }}</td>
+          <td><span class="badge" style="background:#f0f0f0;color:#555;font-size:11px;">{{ task.priority }}</span></td>
+          <td>
+            <span class="badge" style="font-size:11px;
+              background:{{ '#e8f5e9' if task.status=='Done' else '#fff3e0' }};
+              color:{{ '#2e7d32' if task.status=='Done' else '#e65100' }};">
+              {{ task.status }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card mt-4 border-0" style="background:#e8f4fd;">
+  <div class="card-body py-3 px-4" style="font-size:12px;color:#1565c0;">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>How reminders work:</strong> When you open this page, the CRM checks for any tasks whose reminder time has passed and automatically fires email notifications to the assigned team member. You can also click <strong>Send Now</strong> to fire manually.
+  </div>
+</div>
+
+{% endblock %}

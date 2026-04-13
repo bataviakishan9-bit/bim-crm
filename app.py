@@ -1344,6 +1344,252 @@ def _form_to_lead(form) -> dict:
     }
 
 
+# ── TEAM EMAIL MAP ────────────────────────────────────────────────────────────
+
+TEAM_EMAILS = {
+    "kishan"  : "kishan.batavia@biminfrasolutions.in",
+    "hirakraj": "ceo@biminfrasolutions.com",
+    "tirth"   : "coo@biminfrasolutions.com",
+    "jenish"  : "services@biminfrasolutions.in",
+}
+
+TEAM_DISPLAY = {k: v["display"] for k, v in CRM_USERS.items()}
+
+
+def _send_internal_email(to_username: str, subject: str, html_body: str):
+    """Send an internal notification email to a team member."""
+    to_email = TEAM_EMAILS.get(to_username)
+    if not to_email:
+        return
+    try:
+        mail_client.send_email(to_address=to_email, subject=subject, html_body=html_body)
+    except Exception as e:
+        app.logger.warning("Internal email to %s failed: %s", to_username, e)
+
+
+def _task_email_html(task: dict, action: str = "assigned") -> str:
+    assigned_by_display = TEAM_DISPLAY.get(task.get("assigned_by", ""), task.get("assigned_by", ""))
+    due = str(task.get("due_date", ""))[:10] if task.get("due_date") else "No due date"
+    return f"""
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:20px auto;padding:0 20px;color:#222;font-size:14px;line-height:1.8;">
+      <div style="background:#1B3A6B;color:#fff;padding:16px 22px;border-radius:8px 8px 0 0;">
+        <strong>BIM Infra Solutions — Internal CRM</strong>
+      </div>
+      <div style="border:1px solid #e0e0e0;border-top:none;padding:22px;border-radius:0 0 8px 8px;">
+        <h3 style="color:#1B3A6B;margin-top:0;">Task {action.title()}</h3>
+        <p><strong>{task['title']}</strong></p>
+        {f"<p style='color:#555;'>{task.get('description','')}</p>" if task.get('description') else ''}
+        <table style="font-size:13px;color:#555;border-collapse:collapse;width:100%;">
+          <tr><td style="padding:4px 0;width:120px;"><strong>Assigned by:</strong></td><td>{assigned_by_display}</td></tr>
+          <tr><td style="padding:4px 0;"><strong>Priority:</strong></td><td>{task.get('priority','Medium')}</td></tr>
+          <tr><td style="padding:4px 0;"><strong>Due date:</strong></td><td>{due}</td></tr>
+        </table>
+        <p style="margin-top:18px;">
+          <a href="https://bim-crm.onrender.com/team-tasks"
+             style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">
+            View Task in CRM
+          </a>
+        </p>
+      </div>
+    </div>"""
+
+
+# ── INTERNAL NOTES (Instructions) ─────────────────────────────────────────────
+
+@app.route("/instructions", methods=["GET", "POST"])
+@login_required
+def instructions():
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "create":
+            db.create_note(
+                title    = request.form.get("title","").strip(),
+                body     = request.form.get("body","").strip(),
+                created_by = current_user.username,
+                is_pinned  = 1 if request.form.get("pin") else 0,
+            )
+            flash("Instruction posted!", "success")
+        elif action == "edit":
+            db.update_note(
+                int(request.form.get("note_id")),
+                request.form.get("title","").strip(),
+                request.form.get("body","").strip(),
+                1 if request.form.get("pin") else 0,
+            )
+            flash("Updated.", "success")
+        elif action == "delete":
+            db.delete_note(int(request.form.get("note_id")))
+            flash("Deleted.", "info")
+        elif action == "toggle_pin":
+            note_id = int(request.form.get("note_id"))
+            notes = db.get_notes()
+            note  = next((n for n in notes if n["id"] == note_id), None)
+            if note:
+                db.update_note(note_id, note["title"], note["body"], 0 if note["is_pinned"] else 1)
+        return redirect(url_for("instructions"))
+
+    notes = db.get_notes()
+    return render_template("instructions.html", notes=notes, team=TEAM_DISPLAY)
+
+
+# ── RESPONSIBILITIES ───────────────────────────────────────────────────────────
+
+@app.route("/responsibilities", methods=["GET", "POST"])
+@login_required
+def responsibilities():
+    filter_user = request.args.get("user", "")
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "create":
+            assigned_to = request.form.get("assigned_to")
+            data = {
+                "title"      : request.form.get("title","").strip(),
+                "description": request.form.get("description","").strip(),
+                "assigned_to": assigned_to,
+                "assigned_by": current_user.username,
+                "category"   : request.form.get("category","General"),
+                "status"     : "Active",
+            }
+            db.create_responsibility(data)
+            # Notify the assigned person
+            display_to   = TEAM_DISPLAY.get(assigned_to, assigned_to)
+            display_from = TEAM_DISPLAY.get(current_user.username, current_user.username)
+            _send_internal_email(
+                assigned_to,
+                f"New Responsibility Assigned — {data['title']}",
+                f"""<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:520px;margin:20px auto;padding:0 20px;font-size:14px;line-height:1.8;color:#222;">
+                  <div style="background:#1B3A6B;color:#fff;padding:16px 22px;border-radius:8px 8px 0 0;"><strong>BIM Infra Solutions CRM</strong></div>
+                  <div style="border:1px solid #e0e0e0;border-top:none;padding:22px;border-radius:0 0 8px 8px;">
+                    <h3 style="color:#1B3A6B;margin-top:0;">Responsibility Assigned to You</h3>
+                    <p><strong>{data['title']}</strong></p>
+                    {f"<p style='color:#555;'>{data['description']}</p>" if data['description'] else ''}
+                    <p style='color:#555;'>Category: <strong>{data['category']}</strong><br>Assigned by: <strong>{display_from}</strong></p>
+                    <a href="https://bim-crm.onrender.com/responsibilities" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:10px;">View in CRM</a>
+                  </div></div>"""
+            )
+            flash(f"Responsibility assigned to {display_to} and notified by email.", "success")
+        elif action == "status":
+            db.update_responsibility_status(int(request.form.get("rid")), request.form.get("status"))
+            flash("Status updated.", "success")
+        elif action == "delete":
+            db.delete_responsibility(int(request.form.get("rid")))
+            flash("Deleted.", "info")
+        return redirect(url_for("responsibilities", user=filter_user))
+
+    all_resp  = db.get_responsibilities(assigned_to=filter_user or None)
+    # Group by user for display
+    grouped = {}
+    for r in all_resp:
+        u = r["assigned_to"]
+        grouped.setdefault(u, []).append(r)
+    return render_template("responsibilities.html",
+                           grouped=grouped, all_resp=all_resp,
+                           team=TEAM_DISPLAY, filter_user=filter_user)
+
+
+# ── TEAM TASKS ─────────────────────────────────────────────────────────────────
+
+@app.route("/team-tasks", methods=["GET", "POST"])
+@login_required
+def team_tasks():
+    filter_user   = request.args.get("user", "")
+    filter_status = request.args.get("status", "")
+
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "create":
+            assigned_to = request.form.get("assigned_to","")
+            lead_id_raw = request.form.get("lead_id","").strip()
+            due_raw     = request.form.get("due_date","").strip()
+            rem_raw     = request.form.get("reminder_at","").strip()
+            data = {
+                "title"      : request.form.get("title","").strip(),
+                "description": request.form.get("description","").strip(),
+                "assigned_to": assigned_to,
+                "assigned_by": current_user.username,
+                "lead_id"    : int(lead_id_raw) if lead_id_raw.isdigit() else None,
+                "due_date"   : due_raw or None,
+                "priority"   : request.form.get("priority","Medium"),
+                "status"     : "Pending",
+                "reminder_at": rem_raw or None,
+            }
+            db.create_team_task(data)
+            # Send email notification to all if 'all', else specific user
+            targets = list(TEAM_EMAILS.keys()) if assigned_to == "all" else [assigned_to]
+            for username in targets:
+                if username != current_user.username:
+                    _send_internal_email(
+                        username,
+                        f"Task Assigned to You — {data['title']}",
+                        _task_email_html(data, "assigned"),
+                    )
+            display_to = "Everyone" if assigned_to == "all" else TEAM_DISPLAY.get(assigned_to, assigned_to)
+            flash(f"Task assigned to {display_to} and notified by email.", "success")
+
+        elif action == "status":
+            db.update_team_task_status(int(request.form.get("tid")), request.form.get("status"))
+            flash("Task status updated.", "success")
+
+        elif action == "delete":
+            db.delete_team_task(int(request.form.get("tid")))
+            flash("Task deleted.", "info")
+
+        return redirect(url_for("team_tasks", user=filter_user, status=filter_status))
+
+    tasks     = db.get_team_tasks(assigned_to=filter_user or None, status=filter_status or None)
+    all_leads = db.get_all_leads()
+    return render_template("team_tasks.html",
+                           tasks=tasks, team=TEAM_DISPLAY,
+                           all_leads=all_leads,
+                           filter_user=filter_user,
+                           filter_status=filter_status,
+                           current_username=current_user.username)
+
+
+# ── REMINDERS ──────────────────────────────────────────────────────────────────
+
+@app.route("/reminders")
+@login_required
+def reminders():
+    # Auto-fire overdue reminders
+    due = db.get_due_reminders()
+    fired = []
+    for task in due:
+        targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
+        for username in targets:
+            _send_internal_email(
+                username,
+                f"Reminder: {task['title']}",
+                _task_email_html(task, "reminder"),
+            )
+        db.mark_reminder_sent(task["id"])
+        fired.append(task["title"])
+
+    if fired:
+        flash(f"Reminder emails sent for: {', '.join(fired)}", "info")
+
+    # Show all upcoming + recent tasks with reminders
+    upcoming = db.get_team_tasks()
+    return render_template("reminders.html",
+                           tasks=upcoming, team=TEAM_DISPLAY,
+                           current_username=current_user.username,
+                           now=datetime.utcnow())
+
+
+@app.route("/reminders/send-now/<int:tid>", methods=["POST"])
+@login_required
+def send_reminder_now(tid):
+    tasks = db.get_team_tasks()
+    task  = next((t for t in tasks if t["id"] == tid), None)
+    if task:
+        targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
+        for username in targets:
+            _send_internal_email(username, f"Reminder: {task['title']}", _task_email_html(task, "reminder"))
+        db.mark_reminder_sent(tid)
+        flash(f"Reminder sent for: {task['title']}", "success")
+    return redirect(url_for("reminders"))
+
+
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

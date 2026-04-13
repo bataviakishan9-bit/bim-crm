@@ -272,6 +272,56 @@ def init_db():
             )
         """)
 
+    # internal_notes table
+    tbl_serial = "SERIAL" if _is_pg() else "INTEGER"
+    pk = "PRIMARY KEY" if not _is_pg() else "PRIMARY KEY"
+    auto = "" if _is_pg() else "AUTOINCREMENT"
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS internal_notes (
+            id         {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            title      TEXT NOT NULL,
+            body       TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            is_pinned  INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # responsibilities table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS responsibilities (
+            id          {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            title       TEXT NOT NULL,
+            description TEXT,
+            assigned_to TEXT NOT NULL,
+            assigned_by TEXT NOT NULL,
+            category    TEXT DEFAULT 'General',
+            status      TEXT DEFAULT 'Active',
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # team_tasks table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS team_tasks (
+            id            {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            title         TEXT NOT NULL,
+            description   TEXT,
+            assigned_to   TEXT NOT NULL,
+            assigned_by   TEXT NOT NULL,
+            lead_id       INTEGER,
+            due_date      TIMESTAMP,
+            priority      TEXT DEFAULT 'Medium',
+            status        TEXT DEFAULT 'Pending',
+            reminder_at   TIMESTAMP,
+            reminder_sent INTEGER DEFAULT 0,
+            email_sent    INTEGER DEFAULT 0,
+            created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -679,3 +729,132 @@ def get_stats() -> dict:
         "recent_leads" : recent_leads,
         "recent_emails": recent_emails,
     }
+
+# ── INTERNAL NOTES ─────────────────────────────────────────────────────────────
+
+def get_notes(pinned_first=True) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    order = "ORDER BY is_pinned DESC, created_at DESC"
+    c.execute(f"SELECT * FROM internal_notes {order}")
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+def create_note(title: str, body: str, created_by: str, is_pinned: int = 0) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    sql = _q("INSERT INTO internal_notes (title, body, created_by, is_pinned, created_at, updated_at) VALUES (?,?,?,?,?,?)" + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, (title, body, created_by, is_pinned, datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
+    nid = _lastrow(c, "internal_notes")
+    conn.commit(); conn.close()
+    return nid
+
+def update_note(note_id: int, title: str, body: str, is_pinned: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("UPDATE internal_notes SET title=?, body=?, is_pinned=?, updated_at=? WHERE id=?"),
+              (title, body, is_pinned, datetime.utcnow().isoformat(), note_id))
+    conn.commit(); conn.close()
+
+def delete_note(note_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM internal_notes WHERE id=?"), (note_id,))
+    conn.commit(); conn.close()
+
+
+# ── RESPONSIBILITIES ───────────────────────────────────────────────────────────
+
+def get_responsibilities(assigned_to=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    if assigned_to:
+        c.execute(_q("SELECT * FROM responsibilities WHERE assigned_to=? ORDER BY created_at DESC"), (assigned_to,))
+    else:
+        c.execute("SELECT * FROM responsibilities ORDER BY assigned_to, created_at DESC")
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+def create_responsibility(data: dict) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    sql = _q("INSERT INTO responsibilities (title, description, assigned_to, assigned_by, category, status, created_at) VALUES (?,?,?,?,?,?,?)" + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, (data["title"], data.get("description",""), data["assigned_to"], data["assigned_by"],
+                    data.get("category","General"), data.get("status","Active"), datetime.utcnow().isoformat()))
+    rid = _lastrow(c, "responsibilities")
+    conn.commit(); conn.close()
+    return rid
+
+def update_responsibility_status(rid: int, status: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("UPDATE responsibilities SET status=? WHERE id=?"), (status, rid))
+    conn.commit(); conn.close()
+
+def delete_responsibility(rid: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM responsibilities WHERE id=?"), (rid,))
+    conn.commit(); conn.close()
+
+
+# ── TEAM TASKS ─────────────────────────────────────────────────────────────────
+
+def get_team_tasks(assigned_to=None, status=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    q = "SELECT t.*, l.first_name as lead_fname, l.last_name as lead_lname, l.company as lead_company FROM team_tasks t LEFT JOIN leads l ON t.lead_id = l.id WHERE 1=1"
+    params = []
+    if assigned_to and assigned_to != "all":
+        q += _q(" AND (t.assigned_to=? OR t.assigned_to='all')")
+        params.append(assigned_to)
+    if status:
+        q += _q(" AND t.status=?")
+        params.append(status)
+    q += " ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC"
+    c.execute(q, params)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+def create_team_task(data: dict) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    sql = _q("INSERT INTO team_tasks (title, description, assigned_to, assigned_by, lead_id, due_date, priority, status, reminder_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)" + (" RETURNING id" if _is_pg() else ""))
+    now = datetime.utcnow().isoformat()
+    c.execute(sql, (data["title"], data.get("description",""), data["assigned_to"], data["assigned_by"],
+                    data.get("lead_id"), data.get("due_date"), data.get("priority","Medium"),
+                    data.get("status","Pending"), data.get("reminder_at"), now, now))
+    tid = _lastrow(c, "team_tasks")
+    conn.commit(); conn.close()
+    return tid
+
+def update_team_task_status(tid: int, status: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("UPDATE team_tasks SET status=?, updated_at=? WHERE id=?"), (status, datetime.utcnow().isoformat(), tid))
+    conn.commit(); conn.close()
+
+def delete_team_task(tid: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM team_tasks WHERE id=?"), (tid,))
+    conn.commit(); conn.close()
+
+def get_due_reminders() -> list:
+    """Get team tasks with reminder_at <= now and reminder_sent=0."""
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    c.execute(_q("SELECT * FROM team_tasks WHERE reminder_at IS NOT NULL AND reminder_at <= ? AND reminder_sent=0 AND status != 'Done'"), (now,))
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+def mark_reminder_sent(tid: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("UPDATE team_tasks SET reminder_sent=1 WHERE id=?"), (tid,))
+    conn.commit(); conn.close()

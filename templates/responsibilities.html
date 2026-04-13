@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-person-check me-2"></i>Responsibilities</h4>
+    <small class="text-muted">Assign and track team responsibilities. Assignment sends an email notification.</small>
+  </div>
+  <button class="btn btn-bim btn-sm" data-bs-toggle="modal" data-bs-target="#newRespModal">
+    <i class="bi bi-plus-lg me-1"></i> Assign Responsibility
+  </button>
+</div>
+
+<!-- Filter tabs -->
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="/responsibilities" class="btn btn-sm {{ 'btn-bim' if not filter_user else 'btn-outline-secondary' }}">All</a>
+  {% for username, display in team.items() %}
+  <a href="/responsibilities?user={{ username }}"
+     class="btn btn-sm {{ 'btn-bim' if filter_user == username else 'btn-outline-secondary' }}">
+    {{ display }}
+  </a>
+  {% endfor %}
+</div>
+
+{% if not all_resp %}
+<div class="card" style="border:2px dashed #dee2e6;">
+  <div class="card-body text-center py-5" style="color:#aaa;">
+    <i class="bi bi-person-check" style="font-size:40px;"></i>
+    <p class="mt-3 mb-0">No responsibilities assigned yet.</p>
+  </div>
+</div>
+{% endif %}
+
+{% set user_colors = {'kishan':'#1B3A6B','hirakraj':'#1565c0','tirth':'#6a1b9a','jenish':'#e65100'} %}
+
+{% for username, items in grouped.items() %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2"
+       style="background:{{ user_colors.get(username,'#555') }};color:#fff;">
+    <i class="bi bi-person-fill"></i>
+    <strong>{{ team.get(username, username) }}</strong>
+    <span class="badge ms-auto" style="background:rgba(255,255,255,0.2);font-size:11px;">
+      {{ items | selectattr('status','eq','Active') | list | length }} active
+    </span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th style="width:30%;">Responsibility</th>
+          <th style="width:15%;">Category</th>
+          <th style="width:30%;">Description</th>
+          <th style="width:10%;">Status</th>
+          <th style="width:10%;">By</th>
+          <th style="width:5%;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in items %}
+        <tr style="{% if r.status == 'Completed' %}opacity:0.5;{% elif r.status == 'On Hold' %}background:#fff8e1;{% endif %}">
+          <td class="ps-3 fw-semibold">{{ r.title }}</td>
+          <td><span class="badge" style="background:#e8eaf6;color:#283593;font-size:11px;">{{ r.category }}</span></td>
+          <td style="color:#666;">{{ r.description or '—' }}</td>
+          <td>
+            <form method="POST" action="/responsibilities">
+              <input type="hidden" name="action" value="status">
+              <input type="hidden" name="rid" value="{{ r.id }}">
+              <select name="status" class="form-select form-select-sm" onchange="this.form.submit()"
+                      style="font-size:11px;padding:2px 4px;">
+                {% for s in ['Active','On Hold','Completed'] %}
+                <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td style="color:#888;font-size:12px;">{{ team.get(r.assigned_by, r.assigned_by) }}</td>
+          <td>
+            <form method="POST" action="/responsibilities" onsubmit="return confirm('Delete?')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="rid" value="{{ r.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:2px 6px;font-size:11px;">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+<!-- New Responsibility Modal -->
+<div class="modal fade" id="newRespModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Assign Responsibility</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/responsibilities">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Assign To</label>
+            <select name="assigned_to" class="form-select" required>
+              <option value="">— Select team member —</option>
+              {% for username, display in team.items() %}
+              <option value="{{ username }}">{{ display }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Responsibility Title</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Manage LinkedIn outreach" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Description</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Details, expectations, frequency..."></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px;">Category</label>
+            <select name="category" class="form-select">
+              <option>General</option>
+              <option>Sales</option>
+              <option>Operations</option>
+              <option>Finance</option>
+              <option>Marketing</option>
+              <option>Technical</option>
+              <option>HR</option>
+            </select>
+          </div>
+          <div class="alert alert-info py-2 px-3" style="font-size:12px;">
+            <i class="bi bi-envelope me-1"></i> An email notification will be sent to the assigned person.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim btn-sm"><i class="bi bi-check-lg me-1"></i>Assign & Notify</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
