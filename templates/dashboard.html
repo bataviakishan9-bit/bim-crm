@@ -83,6 +83,125 @@
 </div>
 {% endif %}
 
+<!-- Next Email Due -->
+{% set overdue = due_leads | selectattr('days_overdue', 'ge', 0) | list %}
+{% set upcoming = due_leads | selectattr('days_overdue', 'lt', 0) | list %}
+
+{% if overdue %}
+<div class="card mb-3" style="border-left:4px solid #c62828;">
+  <div class="card-header d-flex justify-content-between align-items-center"
+       style="background:#ffebee;border-bottom:1px solid #ffcdd2;">
+    <div>
+      <i class="bi bi-envelope-exclamation-fill me-2" style="color:#c62828;"></i>
+      <strong style="color:#c62828;font-size:14px;">{{ overdue|length }} Lead(s) — Email Overdue</strong>
+      <span class="text-muted ms-2" style="font-size:12px;">Send their next sequence email now</span>
+    </div>
+    <a href="/leads?status=Contacted" class="btn btn-sm" style="background:#c62828;color:#fff;font-size:12px;">
+      View All
+    </a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="ps-3">Lead</th>
+          <th>Company</th>
+          <th>Template</th>
+          <th>Step</th>
+          <th>Due Since</th>
+          <th>Overdue</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in overdue[:10] %}
+        <tr>
+          <td class="ps-3">
+            <a href="/leads/{{ lead.id }}" style="font-weight:600;color:#1B3A6B;">
+              {{ lead.first_name }} {{ lead.last_name or '' }}
+            </a>
+          </td>
+          <td style="color:#555;">{{ lead.company or '—' }}</td>
+          <td><span class="badge" style="background:#e8eaf6;color:#283593;font-size:11px;">{{ lead.email_template }}</span></td>
+          <td>
+            <span class="badge" style="background:#1B3A6B;color:#fff;font-size:11px;">
+              Step {{ (lead.email_sequence_step or 0) + 1 }}/3
+            </span>
+          </td>
+          <td style="color:#c62828;font-weight:600;">{{ lead.next_email_due }}</td>
+          <td>
+            {% if lead.days_overdue == 0 %}
+              <span class="badge" style="background:#fff3e0;color:#e65100;font-size:11px;">Due today</span>
+            {% else %}
+              <span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">
+                {{ lead.days_overdue }}d overdue
+              </span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="/leads/{{ lead.id }}" class="btn btn-sm btn-bim" style="font-size:11px;padding:3px 10px;">
+              <i class="bi bi-send me-1"></i>Send
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if upcoming %}
+<div class="card mb-3" style="border-left:4px solid #D4A017;">
+  <div class="card-header d-flex justify-content-between align-items-center"
+       style="background:#fffde7;border-bottom:1px solid #fff9c4;">
+    <div>
+      <i class="bi bi-envelope-clock me-2" style="color:#D4A017;"></i>
+      <strong style="color:#856404;font-size:14px;">{{ upcoming|length }} Lead(s) — Upcoming Emails</strong>
+      <span class="text-muted ms-2" style="font-size:12px;">Scheduled for the next few days</span>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="ps-3">Lead</th>
+          <th>Company</th>
+          <th>Template</th>
+          <th>Step</th>
+          <th>Send On</th>
+          <th>Days Left</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in upcoming[:8] | sort(attribute='days_overdue') %}
+        <tr>
+          <td class="ps-3">
+            <a href="/leads/{{ lead.id }}" style="font-weight:600;color:#1B3A6B;">
+              {{ lead.first_name }} {{ lead.last_name or '' }}
+            </a>
+          </td>
+          <td style="color:#555;">{{ lead.company or '—' }}</td>
+          <td><span class="badge" style="background:#e8eaf6;color:#283593;font-size:11px;">{{ lead.email_template }}</span></td>
+          <td>
+            <span class="badge" style="background:#1B3A6B;color:#fff;font-size:11px;">
+              Step {{ (lead.email_sequence_step or 0) + 1 }}/3
+            </span>
+          </td>
+          <td style="color:#856404;font-weight:600;">{{ lead.next_email_due }}</td>
+          <td>
+            <span class="badge" style="background:#fffde7;color:#856404;font-size:11px;">
+              {{ lead.days_overdue | abs }} days
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3">
 
   <!-- Pipeline -->

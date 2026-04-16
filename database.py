@@ -730,6 +730,73 @@ def get_stats() -> dict:
         "recent_emails": recent_emails,
     }
 
+# ── DUE EMAILS ────────────────────────────────────────────────────────────────
+
+def get_due_email_leads() -> list:
+    """
+    Return leads where the next sequence email is due today or overdue.
+    Logic per template schedule:
+      step 0 → always due (never emailed)
+      step 1 → due if days_since_last >= schedule[1] - schedule[0]
+      step 2 → due if days_since_last >= schedule[2] - schedule[1]
+      step 3 → complete, skip
+    """
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    SCHEDULE = {"A": [0,4,9], "B": [0,5,12], "C": [0,4,10], "D": [0,4,9]}
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, first_name, last_name, email, company, country,
+               status, email_template, email_sequence_step, last_email_sent
+        FROM leads
+        WHERE email_sequence_step < 3
+        AND status NOT IN ('Unsubscribed','Invalid')
+        ORDER BY last_email_sent ASC NULLS FIRST
+    """)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+
+    now = _dt.now(_tz.utc).replace(tzinfo=None)
+    due = []
+    for lead in rows:
+        step = lead.get("email_sequence_step", 0) or 0
+        tpl  = lead.get("email_template", "A") or "A"
+        sched = SCHEDULE.get(tpl, SCHEDULE["A"])
+
+        if step == 0:
+            # Never emailed — always due
+            lead["next_email_due"] = "Now"
+            lead["days_overdue"]   = 0
+            due.append(lead)
+        else:
+            last_sent = lead.get("last_email_sent")
+            if not last_sent:
+                lead["next_email_due"] = "Now"
+                lead["days_overdue"]   = 0
+                due.append(lead)
+                continue
+            if isinstance(last_sent, str):
+                try:
+                    last_sent = _dt.fromisoformat(last_sent[:19])
+                except Exception:
+                    continue
+            gap_needed = sched[step] - sched[step - 1]
+            due_date   = last_sent + _td(days=gap_needed)
+            days_diff  = (now - due_date).days
+            if days_diff >= 0:
+                lead["next_email_due"] = due_date.strftime("%b %d, %Y")
+                lead["days_overdue"]   = days_diff
+                due.append(lead)
+            else:
+                # Not due yet — include with future date so dashboard can show upcoming too
+                lead["next_email_due"] = due_date.strftime("%b %d, %Y")
+                lead["days_overdue"]   = days_diff  # negative = days remaining
+                due.append(lead)
+    # Sort: overdue first (days_overdue desc), then upcoming
+    due.sort(key=lambda x: -x["days_overdue"])
+    return due
+
+
 # ── INTERNAL NOTES ─────────────────────────────────────────────────────────────
 
 def get_notes(pinned_first=True) -> list:
