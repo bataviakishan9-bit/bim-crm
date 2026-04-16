@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-shield-lock me-2"></i>Zoho Token Refresh</h4>
+    <small class="text-muted">Admin — renew Zoho OAuth refresh token</small>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+
+    {% if new_token %}
+    <div class="card mb-3" style="border:1px solid #198754;">
+      <div class="card-body">
+        <h6 class="text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i>Token updated successfully!</h6>
+        <p class="mb-2" style="font-size:13px;color:var(--muted);">New refresh token (copy to Render if needed):</p>
+        <div class="input-group">
+          <input type="text" id="tokenOut" class="form-control font-monospace"
+                 value="{{ new_token }}" readonly style="font-size:12px;">
+          <button class="btn btn-outline-secondary" type="button" onclick="copyToken()">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+        <small class="text-muted d-block mt-2" style="font-size:11px;">
+          The app is already using this token. If Render auto-deploy doesn't pick it up, paste it manually in
+          <strong>Render → Environment → ZOHO_REFRESH_TOKEN</strong>.
+        </small>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="alert alert-danger py-2" style="font-size:13px;">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>{{ error }}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-body p-4">
+        <h6 class="mb-3" style="font-weight:700;">Step 1 — Get an auth code from Zoho</h6>
+        <ol style="font-size:13px;color:var(--muted);line-height:2;">
+          <li>Open <a href="https://api-console.zoho.in/" target="_blank" style="color:var(--gold);">api-console.zoho.in</a></li>
+          <li>Click your <strong>Self Client</strong> app</li>
+          <li>Click <strong>"Generate Code"</strong></li>
+          <li>Scopes: <code>ZohoMail.messages.ALL,ZohoMail.accounts.READ</code></li>
+          <li>Expiry: <strong>10 minutes</strong></li>
+          <li>Copy the code shown</li>
+        </ol>
+
+        <hr style="border-color:var(--border);">
+
+        <h6 class="mb-3" style="font-weight:700;">Step 2 — Paste the code below</h6>
+        <form method="POST" action="/admin/update-zoho-token">
+          <div class="mb-3">
+            <label class="form-label" style="font-size:13px;font-weight:600;">Authorization Code</label>
+            <input type="text" name="auth_code" class="form-control font-monospace"
+                   placeholder="1000.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                   autocomplete="off" autofocus required>
+            <small class="text-muted" style="font-size:11px;">
+              Each code is single-use and valid for 10 minutes only.
+            </small>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-bim flex-grow-1">
+              <i class="bi bi-arrow-repeat me-1"></i> Exchange &amp; Save Token
+            </button>
+            <a href="/replies" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function copyToken() {
+  const el = document.getElementById('tokenOut');
+  el.select();
+  document.execCommand('copy');
+  const btn = el.nextElementSibling;
+  btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+  setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i>', 2000);
+}
+</script>
+
+{% endblock %}

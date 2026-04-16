@@ -1299,7 +1299,7 @@ def test_send_email():
     except Exception as e:
         err = str(e)
         if "invalid_code" in err or "invalid_token" in err or "refresh" in err.lower():
-            flash("Zoho token expired — run get_token.py to get a new refresh token.", "danger")
+            flash('Zoho token expired — <a href="/admin/update-zoho-token">click here to renew it</a>.', "danger")
         else:
             flash(f"Test email error: {err}", "danger")
     return redirect(url_for("my_settings"))
@@ -2653,6 +2653,89 @@ def _save_invoice(invoice_id):
         new_id = db.create_invoice(data, items)
         flash("Invoice created.", "success")
         return redirect(url_for("invoice_view", invoice_id=new_id))
+
+
+# ── ADMIN: ZOHO TOKEN REFRESH ─────────────────────────────────────────────────
+
+@app.route("/admin/update-zoho-token", methods=["GET", "POST"])
+@login_required
+def admin_update_zoho_token():
+    """Admin-only page to exchange a Zoho auth code for a new refresh token."""
+    if current_user.username != "kishan":
+        flash("Admin only.", "danger")
+        return redirect(url_for("dashboard"))
+
+    new_token = None
+    error = None
+
+    if request.method == "POST":
+        import requests as _req
+        auth_code = request.form.get("auth_code", "").strip()
+        if not auth_code:
+            error = "Paste the authorization code from Zoho API Console."
+        else:
+            client_id     = os.getenv("ZOHO_CLIENT_ID", "1000.V1GB0ZULJ3A8J68N57IQSOPU5P6N0P")
+            client_secret = os.getenv("ZOHO_CLIENT_SECRET", "74371811950b55ccbf5ab82fa31bdfd75168b6c183")
+            dc            = os.getenv("ZOHO_DC", "in")
+            try:
+                resp = _req.post(
+                    f"https://accounts.zoho.{dc}/oauth/v2/token",
+                    params={
+                        "grant_type"   : "authorization_code",
+                        "client_id"    : client_id,
+                        "client_secret": client_secret,
+                        "code"         : auth_code,
+                    },
+                    timeout=15,
+                )
+                data = resp.json()
+                if "refresh_token" in data:
+                    new_token = data["refresh_token"]
+                    # Update in-memory immediately — current process picks it up
+                    os.environ["ZOHO_REFRESH_TOKEN"] = new_token
+                    # Also try to update Render env var if API key is configured
+                    render_key = os.getenv("RENDER_API_KEY", "")
+                    render_svc = os.getenv("RENDER_SERVICE_ID", "srv-d7e9jc4vikkc73ek6v50")
+                    if render_key:
+                        try:
+                            # Fetch current env vars first
+                            ev_resp = _req.get(
+                                f"https://api.render.com/v1/services/{render_svc}/env-vars",
+                                headers={"Authorization": f"Bearer {render_key}"},
+                                timeout=10,
+                            )
+                            env_vars = ev_resp.json() if ev_resp.status_code == 200 else []
+                            # Build updated list
+                            updated = []
+                            found = False
+                            for ev in env_vars:
+                                if ev.get("envVar", {}).get("key") == "ZOHO_REFRESH_TOKEN":
+                                    updated.append({"key": "ZOHO_REFRESH_TOKEN", "value": new_token})
+                                    found = True
+                                else:
+                                    k = ev.get("envVar", {}).get("key", "")
+                                    v = ev.get("envVar", {}).get("value", "")
+                                    if k:
+                                        updated.append({"key": k, "value": v})
+                            if not found:
+                                updated.append({"key": "ZOHO_REFRESH_TOKEN", "value": new_token})
+                            _req.put(
+                                f"https://api.render.com/v1/services/{render_svc}/env-vars",
+                                headers={"Authorization": f"Bearer {render_key}",
+                                         "Content-Type": "application/json"},
+                                json=updated,
+                                timeout=10,
+                            )
+                        except Exception:
+                            pass  # Render update is best-effort
+                    flash("New Zoho refresh token saved! App is now using it.", "success")
+                else:
+                    err_desc = data.get("error", "") or data.get("error_description", "") or str(data)
+                    error = f"Zoho rejected the code: {err_desc}. Each code works once and expires in 10 min."
+            except Exception as exc:
+                error = f"Request failed: {exc}"
+
+    return render_template("admin_zoho_token.html", new_token=new_token, error=error)
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
