@@ -1501,7 +1501,7 @@ def _task_email_html(task: dict, action: str = "assigned") -> str:
           <tr><td style="padding:4px 0;"><strong>Due date:</strong></td><td>{due}</td></tr>
         </table>
         <p style="margin-top:18px;">
-          <a href="https://bim-crm.onrender.com/team-tasks"
+          <a href="https://app.biminfrasolutions.in/team-tasks"
              style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;">
             View Task in CRM
           </a>
@@ -1580,11 +1580,11 @@ def responsibilities():
                     <p><strong>{data['title']}</strong></p>
                     {f"<p style='color:#555;'>{data['description']}</p>" if data['description'] else ''}
                     <p style='color:#555;'>Category: <strong>{data['category']}</strong><br>Assigned by: <strong>{display_from}</strong></p>
-                    <a href="https://bim-crm.onrender.com/responsibilities" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:10px;">View in CRM</a>
+                    <a href="https://app.biminfrasolutions.in/responsibilities" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:10px;">View in CRM</a>
                   </div></div>"""
             )
             # WhatsApp bot notification
-            wa_msg = f"📋 New Responsibility: *{data['title']}*\nCategory: {data['category']}\nAssigned by: {display_from}\nhttps://bim-crm.onrender.com/responsibilities"
+            wa_msg = f"📋 New Responsibility: *{data['title']}*\nCategory: {data['category']}\nAssigned by: {display_from}\nhttps://app.biminfrasolutions.in/responsibilities"
             if assigned_to == "all":
                 for uname in TEAM_EMAILS:
                     _send_whatsapp_bot(uname, wa_msg)
@@ -1651,7 +1651,7 @@ def team_tasks():
             wa_msg = (f"✅ Task Assigned: *{data['title']}*\n"
                       f"Priority: {data['priority']} | Due: {data['due_date'] or 'No date'}\n"
                       f"By: {TEAM_DISPLAY.get(current_user.username, current_user.username)}\n"
-                      f"https://bim-crm.onrender.com/team-tasks")
+                      f"https://app.biminfrasolutions.in/team-tasks")
             wa_targets = list(TEAM_EMAILS.keys()) if assigned_to == "all" else [assigned_to]
             for uname in wa_targets:
                 if uname != current_user.username:
@@ -1690,7 +1690,7 @@ def reminders():
         targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
         wa_msg = (f"⏰ Reminder: *{task['title']}*\n"
                   f"Due: {str(task.get('due_date',''))[:10] or 'N/A'}\n"
-                  f"https://bim-crm.onrender.com/team-tasks")
+                  f"https://app.biminfrasolutions.in/team-tasks")
         for username in targets:
             _send_internal_email(
                 username,
@@ -1721,7 +1721,7 @@ def send_reminder_now(tid):
         targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
         wa_msg = (f"⏰ Reminder: *{task['title']}*\n"
                   f"Due: {str(task.get('due_date',''))[:10] or 'N/A'}\n"
-                  f"https://bim-crm.onrender.com/team-tasks")
+                  f"https://app.biminfrasolutions.in/team-tasks")
         for username in targets:
             _send_internal_email(username, f"Reminder: {task['title']}", _task_email_html(task, "reminder"))
             _send_whatsapp_bot(username, wa_msg)
