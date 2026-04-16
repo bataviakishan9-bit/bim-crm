@@ -1730,6 +1730,118 @@ def send_reminder_now(tid):
     return redirect(url_for("reminders"))
 
 
+# ── ONE-TIME MIGRATION ────────────────────────────────────────────────────────
+
+@app.route("/admin/run-migration")
+@login_required
+def run_migration():
+    """One-time: import migration_data.json into PostgreSQL. Only works for Kishan."""
+    if current_user.username != "kishan":
+        return "Not authorized", 403
+
+    import json as _json
+    migration_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migration_data.json")
+    if not os.path.exists(migration_file):
+        return "migration_data.json not found", 404
+
+    with open(migration_file) as f:
+        data = _json.load(f)
+
+    conn = db.get_db()
+    c    = conn.cursor()
+
+    leads_done = email_done = replies_done = tasks_done = 0
+
+    # Check if already migrated
+    c.execute("SELECT COUNT(*) FROM leads")
+    row = c.fetchone()
+    existing = row[0] if isinstance(row, (list, tuple)) else row["count"]
+    if existing > 0:
+        conn.close()
+        flash(f"Already has {existing} leads — migration skipped.", "warning")
+        return redirect(url_for("leads"))
+
+    # ── Leads ──────────────────────────────────────────────────────────────────
+    for r in data.get("leads", []):
+        try:
+            c.execute(db._named("""
+                INSERT INTO leads (
+                    id, first_name, last_name, email, company, title, phone, website,
+                    city, country, industry, status, priority_score, services_needed,
+                    outsourcing_likelihood, pitch_angle, email_template, linkedin_url,
+                    follow_up_stage, description, email_sequence_step, last_email_sent,
+                    created_at, updated_at
+                ) VALUES (
+                    :id,:first_name,:last_name,:email,:company,:title,:phone,:website,
+                    :city,:country,:industry,:status,:priority_score,:services_needed,
+                    :outsourcing_likelihood,:pitch_angle,:email_template,:linkedin_url,
+                    :follow_up_stage,:description,:email_sequence_step,:last_email_sent,
+                    :created_at,:updated_at
+                )
+            """), r)
+            leads_done += 1
+        except Exception:
+            pass
+    conn.commit()
+    if db._is_pg():
+        c.execute("SELECT setval(pg_get_serial_sequence('leads','id'), (SELECT MAX(id) FROM leads))")
+        conn.commit()
+
+    # ── Email logs ─────────────────────────────────────────────────────────────
+    for r in data.get("email_logs", []):
+        try:
+            c.execute(db._named("""
+                INSERT INTO email_logs (
+                    id, lead_id, subject, body, template_key, sequence_step,
+                    sent_at, opened_at, open_count, clicked_at, bounced_at, bounce_reason, status
+                ) VALUES (
+                    :id,:lead_id,:subject,:body,:template_key,:sequence_step,
+                    :sent_at,:opened_at,:open_count,:clicked_at,:bounced_at,:bounce_reason,:status
+                )
+            """), r)
+            email_done += 1
+        except Exception:
+            pass
+    conn.commit()
+    if db._is_pg():
+        c.execute("SELECT setval(pg_get_serial_sequence('email_logs','id'), (SELECT MAX(id) FROM email_logs))")
+        conn.commit()
+
+    # ── Replies ────────────────────────────────────────────────────────────────
+    for r in data.get("replies", []):
+        try:
+            c.execute(db._named("""
+                INSERT INTO replies (id, lead_id, from_email, subject, body, priority, status, source, received_at)
+                VALUES (:id,:lead_id,:from_email,:subject,:body,:priority,:status,:source,:received_at)
+            """), r)
+            replies_done += 1
+        except Exception:
+            pass
+    conn.commit()
+    if db._is_pg():
+        c.execute("SELECT setval(pg_get_serial_sequence('replies','id'), (SELECT MAX(id) FROM replies))")
+        conn.commit()
+
+    # ── Tasks ──────────────────────────────────────────────────────────────────
+    for r in data.get("tasks", []):
+        try:
+            c.execute(db._named("""
+                INSERT INTO tasks (id, lead_id, subject, due_date, priority, description, completed, created_at)
+                VALUES (:id,:lead_id,:subject,:due_date,:priority,:description,:completed,:created_at)
+            """), r)
+            tasks_done += 1
+        except Exception:
+            pass
+    conn.commit()
+    if db._is_pg() and tasks_done:
+        c.execute("SELECT setval(pg_get_serial_sequence('tasks','id'), (SELECT MAX(id) FROM tasks))")
+        conn.commit()
+
+    conn.close()
+    flash(f"Migration complete: {leads_done} leads | {email_done} email logs | {replies_done} replies | {tasks_done} tasks", "success")
+    return redirect(url_for("leads"))
+
+
 # ── WHATSAPP ──────────────────────────────────────────────────────────────────
 
 WA_TEMPLATES = {
