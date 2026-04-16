@@ -359,16 +359,30 @@ class ZohoMailClient:
             lead_email_set = {e.lower() for e in lead_emails}
             result = {"bounced": [], "replied": [], "ooo": [], "new_msg_ids": {"bounce": [], "reply": [], "ooo": []}}
 
-            # ── Fetch last 200 messages across all folders ─────────────
-            # NOTE: no folderId filter — Zoho uses numeric IDs, not "inbox"
+            # ── Auto-detect correct account ID ────────────────────────
+            account_id = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "") or ZOHO_ACCOUNT_ID
+            dc = os.getenv("ZOHO_DC", ZOHO_DC)
+            acct_r = requests.get(
+                f"https://mail.zoho.{dc}/api/accounts",
+                headers={"Authorization": f"Zoho-oauthtoken {token}"},
+                timeout=10,
+            )
+            if acct_r.status_code == 200:
+                accounts = acct_r.json().get("data", [])
+                if accounts:
+                    account_id = str(accounts[0].get("accountId") or account_id)
+                    log.info("Using Zoho account ID: %s", account_id)
+
+            # ── Fetch last 200 messages ────────────────────────────────
             r = requests.get(
-                f"https://mail.zoho.{ZOHO_DC}/api/accounts/{ZOHO_ACCOUNT_ID}/messages/view",
+                f"https://mail.zoho.{dc}/api/accounts/{account_id}/messages/view",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
                 params={"limit": 200, "sortorder": "false"},
                 timeout=20,
             )
             if r.status_code != 200:
                 log.warning("Message fetch failed: %s %s", r.status_code, r.text[:200])
+                result["_error"] = f"Zoho API {r.status_code}: {r.text[:100]}"
                 return result
 
             messages = r.json().get("data", [])

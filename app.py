@@ -763,6 +763,11 @@ def sync_delivery():
     db.mark_messages_synced(new_ids.get("reply", []),  "reply")
     db.mark_messages_synced(new_ids.get("ooo", []),    "ooo")
 
+    # Surface any API-level error from Zoho
+    if status.get("_error"):
+        flash(f"Zoho API error: {status['_error']}", "danger")
+        return redirect(url_for("replies"))
+
     total = bounced_count + delayed_count + replied_count + ooo_count
     parts = []
     if bounced_count:  parts.append(f"{bounced_count} hard bounce(s)")
