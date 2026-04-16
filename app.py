@@ -2668,6 +2668,10 @@ def admin_import_sqlite():
     stats = None
     error = None
 
+    if not db._is_pg():
+        error = "This import only works on the live Render app (PostgreSQL). You are on SQLite locally."
+        return render_template("admin_import_sqlite.html", stats=stats, error=error)
+
     if request.method == "POST":
         import json as _json
         f = request.files.get("datafile")
@@ -2702,8 +2706,8 @@ def admin_import_sqlite():
                         leads_ok += 1
                     except Exception:
                         conn.rollback()
-                # Reset sequence
-                c.execute("SELECT setval('leads_id_seq', (SELECT MAX(id) FROM leads))")
+                if db._is_pg():
+                    c.execute("SELECT setval('leads_id_seq', (SELECT MAX(id) FROM leads))")
 
                 # email_logs
                 logs_ok = 0
@@ -2722,7 +2726,8 @@ def admin_import_sqlite():
                         logs_ok += 1
                     except Exception:
                         conn.rollback()
-                c.execute("SELECT setval('email_logs_id_seq', (SELECT MAX(id) FROM email_logs))")
+                if db._is_pg():
+                    c.execute("SELECT setval('email_logs_id_seq', (SELECT MAX(id) FROM email_logs))")
 
                 # replies
                 replies_ok = 0
@@ -2739,7 +2744,7 @@ def admin_import_sqlite():
                         replies_ok += 1
                     except Exception:
                         conn.rollback()
-                if replies_ok:
+                if replies_ok and db._is_pg():
                     c.execute("SELECT setval('replies_id_seq', (SELECT MAX(id) FROM replies))")
 
                 # tasks
@@ -2757,7 +2762,7 @@ def admin_import_sqlite():
                         tasks_ok += 1
                     except Exception:
                         conn.rollback()
-                if tasks_ok:
+                if tasks_ok and db._is_pg():
                     c.execute("SELECT setval('tasks_id_seq', (SELECT MAX(id) FROM tasks))")
 
                 conn.commit()
