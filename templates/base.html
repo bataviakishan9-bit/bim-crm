@@ -107,7 +107,7 @@
     /* ── Cards ── */
     .card {
       border:1px solid var(--border) !important;
-      background:var(--surface); border-radius:10px !important;
+      background:var(--surface) !important; border-radius:10px !important;
       box-shadow:0 1px 6px rgba(0,0,0,0.35);
     }
     .card-header {
@@ -116,7 +116,15 @@
       border-radius:10px 10px 0 0 !important; font-size:14px;
       color:var(--text) !important;
     }
-    .card-body { color:var(--text); }
+    .card-body { color:var(--text) !important; background:transparent !important; }
+    .modal-content { background:var(--surface) !important; }
+    .modal-body { background:var(--surface) !important; }
+    /* Force dark on all Bootstrap overrides */
+    .bg-white, .bg-light { background:var(--surface) !important; }
+    [style*="background:#fff"], [style*="background: #fff"],
+    [style*="background:white"], [style*="background: white"] {
+      background:var(--surface) !important;
+    }
 
     /* ── Stat cards ── */
     .stat-card {

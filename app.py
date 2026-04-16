@@ -87,7 +87,12 @@ def login():
             next_page = request.args.get("next")
             return redirect(next_page or url_for("dashboard"))
         flash("Invalid username or password.", "danger")
-    return render_template("login.html")
+    from flask import make_response
+    resp = make_response(render_template("login.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/logout")
