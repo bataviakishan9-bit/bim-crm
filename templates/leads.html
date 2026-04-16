@@ -94,13 +94,13 @@
           {% for lead in leads %}
           <tr>
             <td class="ps-3">
-              <a href="/leads/{{ lead.id }}" style="color:#1B3A6B;font-weight:500;font-size:13px;">
+              <a href="/leads/{{ lead.id }}" style="color:var(--gold);font-weight:500;font-size:13px;">
                 {% if lead.status == 'Hot' %}<span style="color:#b71c1c;">&#x1F525;</span> {% endif %}
                 {{ lead.first_name }} {{ lead.last_name }}
               </a>
             </td>
             <td style="font-size:13px;">{{ lead.company or '—' }}</td>
-            <td style="font-size:12px;color:#666;">{{ lead.email }}</td>
+            <td style="font-size:12px;color:var(--muted);">{{ lead.email }}</td>
             <td style="font-size:12px;">{{ lead.country }}</td>
             <td>
               <span class="badge badge-{{ lead.status | lower }}" style="font-size:11px;padding:3px 8px;border-radius:20px;">
@@ -116,7 +116,7 @@
                 {{ lead.priority_score }}
               </span>
             </td>
-            <td style="font-size:12px;color:#666;">{{ lead.email_sequence_step }}/3</td>
+            <td style="font-size:12px;color:var(--muted);">{{ lead.email_sequence_step }}/3</td>
             <td>
               <a href="/leads/{{ lead.id }}" class="btn btn-sm btn-outline-primary" style="font-size:11px;padding:2px 8px;">View</a>
             </td>

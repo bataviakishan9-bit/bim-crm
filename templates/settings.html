@@ -8,7 +8,7 @@
 <div class="card mb-3">
   <div class="card-header bg-white"><strong>Zoho Mail Configuration</strong></div>
   <div class="card-body">
-    <p style="font-size:13px;color:#666;">
+    <p style="font-size:13px;color:var(--muted);">
       Credentials are loaded from the <code>.env</code> file in the BIM_CRM folder.
       Edit the file directly to update values, then restart the app.
     </p>
@@ -41,25 +41,25 @@
 </div>
 
 <div class="card mb-3">
-  <div class="card-header bg-white"><strong><i class="bi bi-search me-1" style="color:#e65100;"></i> Hunter.io — Email Finder Integration</strong></div>
+  <div class="card-header bg-white"><strong><i class="bi bi-search me-1" style="color:#ffb74d;"></i> Hunter.io — Email Finder Integration</strong></div>
   <div class="card-body" style="font-size:13px;">
-    <p style="color:#666;">Hunter.io finds and verifies professional email addresses. Free plan = 25 searches/month.</p>
+    <p style="color:var(--muted);">Hunter.io finds and verifies professional email addresses. Free plan = 25 searches/month.</p>
 
     <table class="table table-sm" style="max-width:500px;">
       <tr>
         <td width="200"><strong>HUNTER_API_KEY</strong></td>
         <td>
           {% if hunter_key %}
-            <span class="badge" style="background:#e8f5e9;color:#2e7d32;">✓ Configured</span>
-            <span style="color:#aaa;font-size:11px;margin-left:6px;">{{ hunter_key }}</span>
+            <span class="badge" style="background:rgba(76,175,80,0.12);color:#2e7d32;">✓ Configured</span>
+            <span style="color:var(--muted);font-size:11px;margin-left:6px;">{{ hunter_key }}</span>
           {% else %}
-            <span class="badge" style="background:#ffebee;color:#c62828;">Not set</span>
+            <span class="badge" style="background:rgba(244,67,54,0.12);color:#c62828;">Not set</span>
           {% endif %}
         </td>
       </tr>
     </table>
 
-    <div class="mt-2 p-3 rounded" style="background:#fff8e1;border-left:4px solid #e65100;font-size:12px;">
+    <div class="mt-2 p-3 rounded" style="background:var(--surface)e1;border-left:4px solid #e65100;font-size:12px;">
       <strong>How to get your free Hunter.io API key:</strong>
       <ol class="mb-0 mt-1">
         <li>Go to <strong>hunter.io</strong> → Sign up free</li>
@@ -71,7 +71,7 @@
       </ol>
     </div>
 
-    <p style="margin-top:10px;color:#555;">
+    <p style="margin-top:10px;color:var(--muted);">
       Once set, every lead detail page shows a <strong>Hunter.io panel</strong> to:
       <ul class="mb-0">
         <li>Verify the current email (valid / invalid / risky)</li>
@@ -94,14 +94,14 @@
     </ol>
 
     <p class="mb-1"><strong>.env template:</strong></p>
-    <pre style="background:#f8f9fa;padding:12px;border-radius:6px;font-size:12px;">ZOHO_CLIENT_ID=1000.xxxxxxxxxx
+    <pre style="background:var(--surface2);padding:12px;border-radius:6px;font-size:12px;">ZOHO_CLIENT_ID=1000.xxxxxxxxxx
 ZOHO_CLIENT_SECRET=xxxxxxxxxx
 ZOHO_REFRESH_TOKEN=1000.xxxxxxxxxx.xxxxxxxxxx
 ZOHO_DC=in
 ZOHO_MAIL_ACCOUNT_ID=1234567890
 SECRET_KEY=bim-infra-crm-2025</pre>
 
-    <p style="color:#666;font-size:12px;margin-top:10px;">
+    <p style="color:var(--muted);font-size:12px;margin-top:10px;">
       Don't have credentials yet?
       Run <code>python C:\Users\Kishan\get_token.py</code> to generate them automatically.
     </p>

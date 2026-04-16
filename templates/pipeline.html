@@ -12,7 +12,7 @@
   .pipeline-col {
     min-width: 230px;
     max-width: 230px;
-    background: #f5f7fa;
+    background:var(--bg);
     border-radius: 10px;
     padding: 0 0 10px 0;
     flex-shrink: 0;
@@ -43,7 +43,7 @@
     gap: 8px;
   }
   .pipeline-card {
-    background: #fff;
+    background:var(--surface)
     border-radius: 8px;
     padding: 10px 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -56,25 +56,25 @@
   .pipeline-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.14); transform: translateY(-1px); }
   .pipeline-card.dragging { opacity: 0.5; transform: rotate(2deg); }
   .pipeline-col.drag-over .pipeline-cards { background: rgba(27,58,107,0.05); border-radius: 6px; }
-  .card-name { font-weight: 700; color: #1B3A6B; font-size: 12px; margin-bottom: 2px; }
-  .card-company { color: #555; font-size: 11px; }
+  .card-name { font-weight: 700; color:var(--gold); font-size: 12px; margin-bottom: 2px; }
+  .card-company { color:var(--muted); font-size: 11px; }
   .card-meta { color: #888; font-size: 10px; margin-top: 5px; display: flex; gap: 6px; flex-wrap: wrap; }
   .card-badge { border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 600; }
   .card-seq { font-size: 10px; color: #888; margin-top: 4px; }
-  .priority-high   { background:#ffebee; color:#b71c1c; }
-  .priority-med    { background:#fff8e1; color:#e65100; }
-  .priority-low    { background:#e8eaf6; color:#283593; }
+  .priority-high   { background:rgba(244,67,54,0.12); color:#b71c1c; }
+  .priority-med    { background:var(--surface)e1; color:#ffb74d; }
+  .priority-low    { background:rgba(100,130,220,0.15);color:#9fa8da; }
   .card-actions { display: none; position: absolute; top: 8px; right: 8px; }
   .pipeline-card:hover .card-actions { display: flex; gap: 3px; }
   .card-actions a, .card-actions button {
-    background: #f0f0f0; border: none; border-radius: 4px;
-    padding: 2px 5px; font-size: 10px; color: #333; cursor: pointer;
+    background:var(--surface3); border: none; border-radius: 4px;
+    padding: 2px 5px; font-size: 10px; color:var(--text); cursor: pointer;
     text-decoration: none;
   }
-  .card-actions a:hover, .card-actions button:hover { background: #1B3A6B; color: #fff; }
+  .card-actions a:hover, .card-actions button:hover { background:var(--surface2);color:var(--text); }
   .move-select {
     font-size: 10px; border: 1px solid #ddd; border-radius: 4px;
-    padding: 1px 4px; color: #333; background: #fff; cursor: pointer;
+    padding: 1px 4px; color:var(--text); background:var(--surface) cursor: pointer;
     max-width: 110px;
   }
   .empty-col { color: #bbb; text-align: center; font-size: 11px; padding: 14px 0; }
@@ -96,7 +96,7 @@
   {% set total_all = namespace(v=0) %}
   {% for s in stages %}{% set total_all.v = total_all.v + totals[s] %}{% endfor %}
   <div class="stat-card d-flex align-items-center gap-3 py-2 px-3" style="border-radius:8px;font-size:12px;">
-    <span><strong style="font-size:20px;color:#1B3A6B;">{{ total_all.v }}</strong><br><span class="text-muted">Total Leads</span></span>
+    <span><strong style="font-size:20px;color:var(--gold);">{{ total_all.v }}</strong><br><span class="text-muted">Total Leads</span></span>
   </div>
   {% for s in ['Hot','Engaged','Contacted'] %}
   <div class="stat-card d-flex align-items-center gap-2 py-2 px-3" style="border-radius:8px;font-size:12px;border-left:3px solid {{ stage_colors[s] }};">
@@ -134,8 +134,8 @@
             <span class="card-badge {% if lead.priority_score >= 80 %}priority-high{% elif lead.priority_score >= 60 %}priority-med{% else %}priority-low{% endif %}">
               ★ {{ lead.priority_score }}
             </span>
-            <span class="card-badge" style="background:#e3f2fd;color:#1565c0;">Tmpl {{ lead.email_template }}</span>
-            <span style="color:#888;">{{ lead.country }}</span>
+            <span class="card-badge" style="background:rgba(33,150,243,0.12);color:var(--gold);">Tmpl {{ lead.email_template }}</span>
+            <span style="color:var(--muted);">{{ lead.country }}</span>
           </div>
 
           <div class="card-seq">

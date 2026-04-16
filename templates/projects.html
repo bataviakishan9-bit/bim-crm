@@ -31,7 +31,7 @@
   </div>
   <div class="col-md-3">
     <div class="stat-card">
-      <div class="number" style="color:#1b5e20;">&#8377;{{ '{:,.0f}'.format(total_val) }}</div>
+      <div class="number" style="color:var(--gold);">&#8377;{{ '{:,.0f}'.format(total_val) }}</div>
       <div class="label">Total Contract Value</div>
     </div>
   </div>
@@ -103,7 +103,7 @@
     <div class="modal-content">
       <form method="post">
         <input type="hidden" name="action" value="create">
-        <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <div class="modal-header" style="background:var(--surface2);color:var(--text);">
           <h5 class="modal-title"><i class="bi bi-building me-2"></i>New Project</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
@@ -126,7 +126,7 @@
       <form method="post" id="editProjectForm">
         <input type="hidden" name="action" value="edit">
         <input type="hidden" name="project_id" id="edit_project_id">
-        <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+        <div class="modal-header" style="background:var(--surface2);color:var(--text);">
           <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Project</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>

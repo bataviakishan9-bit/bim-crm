@@ -178,7 +178,7 @@
     .badge-cold         { background:#181d2e; color:#9fa8da; }
     .badge-contacted    { background:#0d2e1a; color:#81c784; }
     .badge-engaged      { background:#1e0d2e; color:#ce93d8; }
-    .badge-unsubscribed { background:#1a1a1a; color:#aaa; }
+    .badge-unsubscribed { background:#1a1a1a; color:var(--muted); }
     .badge-invalid      { background:#2e0d0d; color:#e57373; }
 
     /* ── Sequence steps ── */
@@ -188,7 +188,7 @@
       font-size:12px; font-weight:600;
     }
     .seq-done    { background:var(--gold); color:#000; }
-    .seq-current { background:#fff; color:#000; }
+    .seq-current { background:var(--surface) color:#000; }
     .seq-pending { background:var(--surface3); color:var(--muted); }
     .seq-line    { width:28px; height:2px; display:inline-block; vertical-align:middle; margin:0 3px; }
     .seq-line-done    { background:var(--gold); }
@@ -200,13 +200,13 @@
     .btn-outline-primary   { border-color:#4a7fc1; color:#7fb3f0; }
     .btn-outline-primary:hover   { background:#1a2e48; color:#fff; border-color:#4a7fc1; }
     .btn-outline-secondary { border-color:var(--border); color:var(--muted); }
-    .btn-outline-secondary:hover { background:var(--surface2); color:var(--text); border-color:#555; }
+    .btn-outline-secondary:hover { background:var(--surface2); color:var(--text); border-color:var(--muted); }
     .btn-outline-success   { border-color:#2d6a42; color:#81c784; }
     .btn-outline-success:hover   { background:#0d2e1a; color:#a5d6a7; border-color:#2d6a42; }
     .btn-outline-danger    { border-color:#6a2d2d; color:#e57373; }
     .btn-outline-danger:hover    { background:#2e0d0d; color:#ef9a9a; border-color:#6a2d2d; }
     .btn-outline-dark      { border-color:#444; color:#ccc; }
-    .btn-outline-dark:hover      { background:#222; color:#fff; border-color:#666; }
+    .btn-outline-dark:hover      { background:#222; color:#fff; border-color:var(--muted); }
     .btn-outline-warning   { border-color:#5c4400; color:#ffcc55; }
     .btn-secondary { background:var(--surface3); color:var(--text); border-color:var(--border); }
     .btn-secondary:hover { background:#333; color:#fff; }

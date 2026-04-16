@@ -18,7 +18,7 @@
     <div class="stat-card" style="border-left:4px solid var(--bs-{{ color }});">
       <div class="number" style="color:var(--bs-{{ color }});">{{ s.count }}</div>
       <div class="label">{{ label }}</div>
-      <div style="font-size:11px;color:#666;">&#8377;{{ '{:,.0f}'.format(s.total) }}</div>
+      <div style="font-size:11px;color:var(--muted);">&#8377;{{ '{:,.0f}'.format(s.total) }}</div>
     </div>
   </div>
   {% endfor %}

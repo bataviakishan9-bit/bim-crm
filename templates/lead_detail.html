@@ -132,8 +132,8 @@
     <!-- WhatsApp Panel -->
     <div class="card mb-3" style="border-left:4px solid #25D366;">
       <div class="card-header d-flex justify-content-between align-items-center"
-           style="background:#f0fdf4;border-bottom:1px solid #dcfce7;">
-        <strong style="color:#15803d;">
+           style="background:var(--surface2);border-bottom:1px solid var(--border);">
+        <strong style="color:#81c784;">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#25D366" viewBox="0 0 16 16" class="me-2" style="margin-top:-2px;">
             <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
           </svg>
@@ -141,7 +141,7 @@
         </strong>
         <div class="d-flex gap-2 align-items-center">
           {% if wa_logs %}
-          <span class="badge" style="background:#dcfce7;color:#15803d;font-size:11px;">
+          <span class="badge" style="background:rgba(76,175,80,0.15);color:#81c784;font-size:11px;">
             {{ wa_logs|length }} sent
           </span>
           {% endif %}
@@ -197,7 +197,7 @@
             <textarea name="message" id="waMessage" class="form-control form-control-sm" rows="3"
                       placeholder="Type your WhatsApp message..." required
                       style="font-size:13px;"></textarea>
-            <div style="font-size:11px;color:#888;margin-top:3px;">
+            <div style="font-size:11px;color:var(--muted);margin-top:3px;">
               <span id="waCharCount">0</span> characters
             </div>
           </div>
@@ -216,16 +216,16 @@
 
         {% if wa_logs %}
         <hr class="my-3">
-        <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px;">WhatsApp History</div>
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;">WhatsApp History</div>
         <div style="max-height:180px;overflow-y:auto;">
           {% for log in wa_logs %}
-          <div class="d-flex gap-2 mb-2 p-2" style="background:#f0fdf4;border-radius:6px;font-size:12px;">
+          <div class="d-flex gap-2 mb-2 p-2" style="background:var(--surface2);border-radius:6px;font-size:12px;">
             <div style="flex-shrink:0;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#25D366" viewBox="0 0 16 16"><path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/></svg>
             </div>
             <div class="flex-grow-1">
               <div style="color:#222;">{{ log.message[:120] }}{% if log.message|length > 120 %}…{% endif %}</div>
-              <div style="color:#888;margin-top:2px;">
+              <div style="color:var(--muted);margin-top:2px;">
                 {{ log.sent_at | string | truncate(16,True,'') }} ·
                 {{ log.sent_by }} ·
                 <span style="color:{{ '#15803d' if log.method=='twilio' else '#888' }};">
@@ -259,24 +259,24 @@
           </thead>
           <tbody>
             {% for log in email_logs %}
-            <tr {% if log.bounced %}style="background:#fff8f8;"{% endif %}>
+            <tr {% if log.bounced %}style="background:var(--surface)f8;"{% endif %}>
               <td class="ps-3" style="font-size:13px;">
                 {{ log.subject }}
                 {% if log.bounced %}
                   <span class="badge ms-1" style="background:#c62828;color:#fff;font-size:10px;">BOUNCED</span>
                 {% endif %}
               </td>
-              <td style="font-size:12px;color:#888;">{{ log.sent_at | string | truncate(16, True, '') }}</td>
+              <td style="font-size:12px;color:var(--muted);">{{ log.sent_at | string | truncate(16, True, '') }}</td>
               <td>
                 {% if log.bounced %}
-                  <span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">
+                  <span class="badge" style="background:rgba(244,67,54,0.12);color:#e57373;font-size:11px;">
                     <i class="bi bi-x-circle me-1"></i>Failed
                   </span>
                   {% if log.bounce_reason %}
-                    <div style="font-size:10px;color:#c62828;margin-top:2px;">{{ log.bounce_reason }}</div>
+                    <div style="font-size:10px;color:#e57373;margin-top:2px;">{{ log.bounce_reason }}</div>
                   {% endif %}
                 {% else %}
-                  <span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:11px;">
+                  <span class="badge" style="background:rgba(76,175,80,0.15);color:#81c784;font-size:11px;">
                     <i class="bi bi-check me-1"></i>Sent
                   </span>
                 {% endif %}
@@ -337,7 +337,7 @@
                             <option value="Marked as spam">Marked as spam</option>
                             <option value="Manual — could not deliver">Manual — could not deliver</option>
                           </select>
-                          <div class="mt-2" style="font-size:11px;color:#888;">
+                          <div class="mt-2" style="font-size:11px;color:var(--muted);">
                             This will rewind the email sequence so you can resend after correcting the address.
                           </div>
                         </div>
@@ -350,7 +350,7 @@
                   </div>
                 </div>
                 {% else %}
-                  <span style="font-size:11px;color:#c62828;"><i class="bi bi-exclamation-triangle"></i> Update email &amp; resend</span>
+                  <span style="font-size:11px;color:#e57373;"><i class="bi bi-exclamation-triangle"></i> Update email &amp; resend</span>
                 {% endif %}
               </td>
             </tr>
@@ -366,7 +366,7 @@
     <!-- Hunter.io Email Finder -->
     <div class="card mb-3" id="hunterCard">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong><i class="bi bi-search me-1" style="color:#e65100;"></i> Hunter.io — Find & Verify Email</strong>
+        <strong><i class="bi bi-search me-1" style="color:#ffb74d;"></i> Hunter.io — Find & Verify Email</strong>
         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#hunterPanel">
           <i class="bi bi-chevron-down"></i>
         </button>
@@ -503,7 +503,7 @@
             {% for task in tasks %}
             <tr {% if task.status == 'Completed' %}style="opacity:0.45;"{% endif %}>
               <td class="ps-3" style="font-size:13px;">{{ task.subject }}</td>
-              <td style="font-size:12px;color:#888;">{{ task.due_date | string | truncate(16, True, '') if task.due_date else '—' }}</td>
+              <td style="font-size:12px;color:var(--muted);">{{ task.due_date | string | truncate(16, True, '') if task.due_date else '—' }}</td>
               <td>
                 <span class="badge" style="font-size:11px;background:
                   {% if task.priority == 'High' %}#b71c1c
@@ -535,10 +535,10 @@
 <script>
 function statusBadge(status, score) {
   const colors = {
-    'valid'     : 'background:#e8f5e9;color:#2e7d32;',
-    'invalid'   : 'background:#ffebee;color:#c62828;',
-    'accept_all': 'background:#fff8e1;color:#e65100;',
-    'unknown'   : 'background:#f5f5f5;color:#666;',
+    'valid'     : 'background:rgba(76,175,80,0.15);color:#81c784;',
+    'invalid'   : 'background:rgba(244,67,54,0.12);color:#e57373;',
+    'accept_all': 'background:var(--surface)e1;color:#ffb74d;',
+    'unknown'   : 'background:var(--surface2);color:var(--muted);',
   };
   const style = colors[status] || colors['unknown'];
   return `<span class="badge" style="${style}font-size:11px;">${status} (${score}%)</span>`;
@@ -550,7 +550,7 @@ function verifyEmail(email, targetId) {
   fetch(`/api/hunter/verify?email=${encodeURIComponent(email)}`)
     .then(r => r.json())
     .then(d => {
-      if (d.error) { el.innerHTML = `<span class="badge" style="background:#ffebee;color:#c62828;font-size:11px;">${d.error}</span>`; return; }
+      if (d.error) { el.innerHTML = `<span class="badge" style="background:rgba(244,67,54,0.12);color:#e57373;font-size:11px;">${d.error}</span>`; return; }
       el.innerHTML = statusBadge(d.status, d.score);
     })
     .catch(() => { el.innerHTML = '<span style="color:red;font-size:11px;">Failed</span>'; });
@@ -570,9 +570,9 @@ function findEmail(leadId) {
       }
       const score = d.score >= 70 ? '#2e7d32' : d.score >= 40 ? '#e65100' : '#c62828';
       body.innerHTML = `
-        <div class="p-2 rounded" style="background:#f0f7ff;border:1px solid #bbdefb;">
-          <div style="font-size:13px;font-weight:700;color:#1B3A6B;">${d.email}</div>
-          <div style="font-size:11px;color:#666;margin-top:2px;">
+        <div class="p-2 rounded" style="background:var(--surface2);border:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;color:var(--gold);">${d.email}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">
             Confidence: <span style="color:${score};font-weight:700;">${d.score}%</span>
             &nbsp;|&nbsp; Sources: ${d.sources}
             &nbsp;|&nbsp; Domain: ${d.domain}
@@ -610,8 +610,8 @@ function domainSearch(leadId) {
         rows += `<tr>
           <td style="font-size:12px;">${e.first_name || ''} ${e.last_name || ''}</td>
           <td style="font-size:12px;"><strong>${e.value}</strong></td>
-          <td style="font-size:11px;color:#888;">${e.position || ''}</td>
-          <td><span class="badge" style="font-size:10px;background:#e8f5e9;color:#2e7d32;">${e.confidence}%</span></td>
+          <td style="font-size:11px;color:var(--muted);">${e.position || ''}</td>
+          <td><span class="badge" style="font-size:10px;background:rgba(76,175,80,0.15);color:#81c784;">${e.confidence}%</span></td>
           <td>
             <button class="btn btn-outline-success" style="font-size:10px;padding:1px 6px;"
                     onclick="useEmail('${e.value}')">Use</button>
@@ -619,7 +619,7 @@ function domainSearch(leadId) {
         </tr>`;
       });
       body.innerHTML = `
-        <div style="font-size:12px;color:#888;margin-bottom:6px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">
           Pattern: <strong>${d.pattern || 'unknown'}</strong> &nbsp;|&nbsp; Total found: <strong>${d.total}</strong>
         </div>
         <div class="table-responsive">

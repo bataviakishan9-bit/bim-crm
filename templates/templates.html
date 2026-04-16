@@ -12,8 +12,8 @@
 
   <!-- ── LEFT SIDEBAR ── -->
   <div class="col-md-3 col-lg-2" style="border-right:1px solid #e5e7eb;">
-    <div style="background:#fff;border-radius:10px 0 0 10px;padding:12px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);min-height:100%;">
-      <div style="padding:10px 16px 6px;font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:0.6px;">Templates</div>
+    <div style="background:var(--surface)border-radius:10px 0 0 10px;padding:12px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06);min-height:100%;">
+      <div style="padding:10px 16px 6px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;">Templates</div>
       {% for key, info in templates.items() %}
       <a href="/templates?t={{ key }}"
          class="d-flex align-items-start gap-2 px-3 py-3 text-decoration-none"
@@ -26,7 +26,7 @@
           <div style="font-size:13px;font-weight:{{ '700' if active == key else '600' }};color:{{ '#1B3A6B' if active == key else '#444' }};">
             {{ info.name }}
           </div>
-          <div style="font-size:11px;color:#999;line-height:1.4;margin-top:2px;">{{ info.desc }}</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px;">{{ info.desc }}</div>
         </div>
       </a>
       {% endfor %}
@@ -39,18 +39,18 @@
   </div>
 
   <!-- ── MAIN CONTENT ── -->
-  <div class="col-md-9 col-lg-10" style="background:#f8f9fa;padding:20px 24px;border-radius:0 10px 10px 0;">
+  <div class="col-md-9 col-lg-10" style="background:var(--surface2);padding:20px 24px;border-radius:0 10px 10px 0;">
 
     <div class="d-flex align-items-center gap-2 mb-4">
-      <div style="width:36px;height:36px;border-radius:8px;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+      <div style="width:36px;height:36px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;">
         <i class="bi {{ templates[active].icon }}" style="color:#D4A017;font-size:16px;"></i>
       </div>
       <div>
-        <div style="font-weight:700;font-size:15px;color:#1B3A6B;">{{ templates[active].name }}</div>
-        <div style="font-size:12px;color:#888;">{{ templates[active].desc }}</div>
+        <div style="font-weight:700;font-size:15px;color:var(--gold);">{{ templates[active].name }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ templates[active].desc }}</div>
       </div>
       {% if steps | selectattr('is_custom') | list | length > 0 %}
-      <span class="badge ms-2" style="background:#e8f5e9;color:#1b5e20;font-size:11px;">
+      <span class="badge ms-2" style="background:rgba(76,175,80,0.12);color:var(--gold);font-size:11px;">
         <i class="bi bi-check-circle me-1"></i>{{ steps | selectattr('is_custom') | list | length }} custom step(s)
       </span>
       {% endif %}
@@ -144,7 +144,7 @@
                   </button>
                 </div>
                 <div id="preview_frame_{{ s.step }}"
-                     style="border:1px solid #dee2e6;border-radius:6px;padding:20px;background:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:14px;line-height:1.8;max-height:400px;overflow-y:auto;">
+                     style="border:1px solid #dee2e6;border-radius:6px;padding:20px;background:var(--surface)font-family:'Segoe UI',Arial,sans-serif;font-size:14px;line-height:1.8;max-height:400px;overflow-y:auto;">
                 </div>
               </div>
 
@@ -170,8 +170,8 @@
     </div>
 
     <!-- Help card -->
-    <div class="card mt-4 border-0" style="background:#e8f4fd;">
-      <div class="card-body py-3 px-4" style="font-size:12px;color:#1565c0;">
+    <div class="card mt-4 border-0" style="background:var(--surface2);">
+      <div class="card-body py-3 px-4" style="font-size:12px;color:var(--gold);">
         <strong><i class="bi bi-lightbulb me-1"></i>Tips:</strong>
         Use <code>{first_name}</code> and <code>{company}</code> anywhere in subject or body — they get replaced automatically when each email is sent.
         HTML tags are fully supported. Reset to default anytime without losing other steps.
@@ -189,7 +189,7 @@ function togglePreview(step) {
   if (panel.classList.contains('d-none')) {
     // Replace placeholders for visual preview
     let html = textarea.value
-      .replace(/\{first_name\}/g, '<span style="background:#fff3cd;padding:0 2px;border-radius:2px;">Alex</span>')
+      .replace(/\{first_name\}/g, '<span style="background:rgba(255,193,7,0.2);padding:0 2px;border-radius:2px;">Alex</span>')
       .replace(/\{company\}/g, '<span style="background:#d1ecf1;padding:0 2px;border-radius:2px;">Acme Corp</span>');
     frame.innerHTML = html;
     panel.classList.remove('d-none');

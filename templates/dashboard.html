@@ -457,7 +457,7 @@ function useEmail(leadId, email) {
           <div class="col-4 text-center">
             <div style="font-size:20px;font-weight:700;color:{{ color }};">{{ s.count }}</div>
             <div style="font-size:10px;" class="text-muted">{{ label }}</div>
-            <div style="font-size:10px;color:#555;">₹{{ '{:,.0f}'.format(s.total) }}</div>
+            <div style="font-size:10px;color:var(--muted);">₹{{ '{:,.0f}'.format(s.total) }}</div>
           </div>
           {% endfor %}
         </div>

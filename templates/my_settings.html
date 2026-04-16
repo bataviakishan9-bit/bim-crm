@@ -16,37 +16,37 @@
     <div class="card mb-3">
       <div class="card-body p-4">
         <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid #f0f0f0;">
-          <div style="width:44px;height:44px;border-radius:50%;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;">
             <i class="bi bi-lock-fill" style="color:#D4A017;font-size:20px;"></i>
           </div>
           <div>
             <div style="font-weight:700;font-size:15px;">{{ current_user.display }}'s Settings</div>
-            <div style="font-size:12px;color:#888;">Settings are currently <strong style="color:#198754;">locked</strong></div>
+            <div style="font-size:12px;color:var(--muted);">Settings are currently <strong style="color:#198754;">locked</strong></div>
           </div>
         </div>
 
         <table class="table table-sm" style="font-size:13px;">
           <tbody>
-            <tr><td style="color:#888;width:38%;">Sender Email</td>
+            <tr><td style="color:var(--muted);width:38%;">Sender Email</td>
                 <td><strong>{{ cfg.sender_email or '—' }}</strong></td></tr>
-            <tr><td style="color:#888;">Sender Name</td>
+            <tr><td style="color:var(--muted);">Sender Name</td>
                 <td>{{ cfg.sender_name or '—' }}</td></tr>
-            <tr><td style="color:#888;">Zoho Client ID</td>
+            <tr><td style="color:var(--muted);">Zoho Client ID</td>
                 <td>{{ (cfg.zoho_client_id or '')[:12] }}{% if cfg.zoho_client_id|length > 12 %}…{% endif %}</td></tr>
-            <tr><td style="color:#888;">Zoho Account ID</td>
+            <tr><td style="color:var(--muted);">Zoho Account ID</td>
                 <td>{{ cfg.zoho_account_id or '—' }}</td></tr>
-            <tr><td style="color:#888;">Zoho DC</td>
+            <tr><td style="color:var(--muted);">Zoho DC</td>
                 <td>{{ cfg.zoho_dc or 'in' }}</td></tr>
-            <tr><td style="color:#888;">Refresh Token</td>
+            <tr><td style="color:var(--muted);">Refresh Token</td>
                 <td>{{ '●●●●●●●●●●●●' if cfg.zoho_refresh_token else '—' }}</td></tr>
-            <tr><td style="color:#888;">Client Secret</td>
+            <tr><td style="color:var(--muted);">Client Secret</td>
                 <td>{{ '●●●●●●●●●●●●' if cfg.zoho_client_secret else '—' }}</td></tr>
-            <tr><td style="color:#888;">WhatsApp Number</td>
+            <tr><td style="color:var(--muted);">WhatsApp Number</td>
                 <td>{{ cfg.wa_phone or '—' }}</td></tr>
-            <tr><td style="color:#888;">CallMeBot Key</td>
+            <tr><td style="color:var(--muted);">CallMeBot Key</td>
                 <td>{{ '●●●●●●●●' if cfg.callmebot_api_key else '—' }}</td></tr>
-            <tr><td style="color:#888;">Last updated</td>
-                <td style="font-size:11px;color:#aaa;">{{ cfg.updated_at or '—' }}</td></tr>
+            <tr><td style="color:var(--muted);">Last updated</td>
+                <td style="font-size:11px;color:var(--muted);">{{ cfg.updated_at or '—' }}</td></tr>
           </tbody>
         </table>
 
@@ -69,8 +69,8 @@
       </div>
     </div>
 
-    <div class="card border-0" style="background:#e8f5e9;">
-      <div class="card-body py-3 px-4" style="font-size:13px;color:#1b5e20;">
+    <div class="card border-0" style="background:rgba(76,175,80,0.12);">
+      <div class="card-body py-3 px-4" style="font-size:13px;color:var(--gold);">
         <i class="bi bi-check-circle-fill me-1"></i>
         Your credentials are active. Emails you send will use <strong>{{ cfg.sender_email }}</strong>.
       </div>
@@ -81,12 +81,12 @@
     <div class="card">
       <div class="card-body p-4">
         <div class="d-flex align-items-center gap-3 mb-4 pb-3" style="border-bottom:1px solid #f0f0f0;">
-          <div style="width:44px;height:44px;border-radius:50%;background:#1B3A6B;display:flex;align-items:center;justify-content:center;">
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;">
             <i class="bi bi-envelope-fill" style="color:#fff;font-size:20px;"></i>
           </div>
           <div>
             <div style="font-weight:700;font-size:15px;">{{ current_user.display }}'s Email Settings</div>
-            <div style="font-size:12px;color:#888;">These credentials will be used when <strong>you</strong> send emails</div>
+            <div style="font-size:12px;color:var(--muted);">These credentials will be used when <strong>you</strong> send emails</div>
           </div>
         </div>
 
@@ -114,23 +114,23 @@
           </div>
 
           <hr class="my-3">
-          <div class="mb-2" style="font-size:12px;font-weight:700;color:#1B3A6B;text-transform:uppercase;letter-spacing:0.5px;">
+          <div class="mb-2" style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;">
             <i class="bi bi-key me-1"></i> Zoho Mail API Credentials
           </div>
 
           <!-- ZOHO SETUP INSTRUCTIONS -->
           <div class="mb-3" style="border:1px solid #bbdefb;border-radius:8px;overflow:hidden;">
-            <div style="background:#1B3A6B;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"
+            <div style="background:var(--surface2);color:var(--text);padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"
                  onclick="toggleInstructions(this)">
               <span><i class="bi bi-book me-2"></i>How to get your Zoho credentials (step-by-step)</span>
               <i class="bi bi-chevron-down" id="instrChevron"></i>
             </div>
-            <div id="zohoInstructions" style="display:none;padding:16px;font-size:12px;line-height:1.9;background:#f0f7ff;">
+            <div id="zohoInstructions" style="display:none;padding:16px;font-size:12px;line-height:1.9;background:var(--surface2);">
 
-              <p style="margin:0 0 10px;color:#1B3A6B;font-weight:700;">You need 3 things: Client ID, Client Secret, and Refresh Token</p>
+              <p style="margin:0 0 10px;color:var(--gold);font-weight:700;">You need 3 things: Client ID, Client Secret, and Refresh Token</p>
 
-              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 1 — Open Zoho API Console</div>
+              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 1 — Open Zoho API Console</div>
                 <ol style="margin:0;padding-left:20px;">
                   <li>Go to <strong>api-console.zoho.in</strong> (India DC) or <strong>api-console.zoho.com</strong> (US DC)</li>
                   <li>Log in with <strong>your own Zoho Mail account</strong> (the one you send emails from)</li>
@@ -138,20 +138,20 @@
                 </ol>
               </div>
 
-              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 2 — Copy Client ID and Client Secret</div>
+              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 2 — Copy Client ID and Client Secret</div>
                 <ol style="margin:0;padding-left:20px;">
                   <li>Once inside your Self Client app, you will see <strong>Client ID</strong> and <strong>Client Secret</strong> displayed</li>
                   <li>Copy both and paste them into the fields below</li>
                 </ol>
               </div>
 
-              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 3 — Generate Refresh Token</div>
+              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 3 — Generate Refresh Token</div>
                 <ol style="margin:0;padding-left:20px;">
                   <li>Click the <strong>"Generate Code"</strong> tab inside Self Client</li>
                   <li>In the <strong>Scope</strong> field, paste exactly:<br>
-                    <code style="background:#e8f0fe;padding:3px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code>
+                    <code style="background:var(--surface3);padding:3px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code>
                   </li>
                   <li>Set <strong>Time Duration</strong> to <strong>10 minutes</strong></li>
                   <li>Add a description (e.g. "BIM CRM") — optional</li>
@@ -160,11 +160,11 @@
                 </ol>
               </div>
 
-              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 4 — Convert code to Refresh Token</div>
+              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 4 — Convert code to Refresh Token</div>
                 <ol style="margin:0;padding-left:20px;">
                   <li>Run <strong>get_token.py</strong> in your BIM_CRM folder:<br>
-                    <code style="background:#e8f0fe;padding:3px 8px;border-radius:4px;font-size:11px;">python get_token.py</code>
+                    <code style="background:var(--surface3);padding:3px 8px;border-radius:4px;font-size:11px;">python get_token.py</code>
                   </li>
                   <li>Paste the code when prompted</li>
                   <li>The script will print your new <strong>Refresh Token</strong> and save it to .env</li>
@@ -172,7 +172,7 @@
                 </ol>
               </div>
 
-              <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px;">
+              <div style="background:rgba(255,193,7,0.12);border:1px solid rgba(255,193,7,0.3);border-radius:6px;padding:12px;">
                 <div style="font-weight:700;color:#856404;margin-bottom:6px;"><i class="bi bi-exclamation-triangle me-1"></i>Also update Render</div>
                 <ol style="margin:0;padding-left:20px;color:#856404;">
                   <li>Go to <strong>dashboard.render.com</strong> → your bim-crm service → <strong>Environment</strong> tab</li>
@@ -182,7 +182,7 @@
                 </ol>
               </div>
 
-              <div style="margin-top:12px;padding:10px 14px;background:#e8f5e9;border-radius:6px;color:#1b5e20;font-size:11px;">
+              <div style="margin-top:12px;padding:10px 14px;background:rgba(76,175,80,0.12);border-radius:6px;color:var(--gold);font-size:11px;">
                 <i class="bi bi-info-circle me-1"></i>
                 <strong>Where is Account ID?</strong> — Log into Zoho Mail → Settings (gear icon) → Developer Space / API → your Account ID is shown there (a long number like 277444000000002002).
               </div>
@@ -248,7 +248,7 @@
           <div class="mb-2" style="font-size:12px;font-weight:700;color:#25D366;text-transform:uppercase;letter-spacing:0.5px;">
             <i class="bi bi-whatsapp me-1"></i> WhatsApp Bot (CallMeBot — Free)
           </div>
-          <div class="alert py-2 px-3 mb-3" style="font-size:12px;background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;">
+          <div class="alert py-2 px-3 mb-3" style="font-size:12px;background:rgba(76,175,80,0.12);border:1px solid #a5d6a7;color:var(--gold);">
             <strong>How to set up (one-time, 2 minutes):</strong><br>
             1. Save the number <strong>+34 644 52 75 40</strong> in your WhatsApp contacts as "CallMeBot".<br>
             2. Send this message to that number on WhatsApp: <code>I allow callmebot to send me messages</code><br>
@@ -317,8 +317,8 @@
     </div>
 
     {% if not cfg %}
-    <div class="card border-0 mt-3" style="background:#fff8e1;">
-      <div class="card-body py-3 px-4" style="font-size:12px;color:#e65100;">
+    <div class="card border-0 mt-3" style="background:var(--surface)e1;">
+      <div class="card-body py-3 px-4" style="font-size:12px;color:#ffb74d;">
         <i class="bi bi-exclamation-triangle-fill me-1"></i>
         No credentials saved yet. Without your own credentials, emails will use the global Zoho account.
       </div>

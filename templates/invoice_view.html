@@ -213,8 +213,8 @@
   body > *:not(#invoicePrint) { display: none !important; }
   #invoicePrint { position: fixed; top:0; left:0; width:100%; box-shadow:none !important; }
   .modal, .page-header, .d-flex.gap-2 { display: none !important; }
-  body { background: white !important; color: black !important; }
-  #invoicePrint, #invoicePrint * { color: black !important; background: white !important; border-color: #999 !important; }
+  body { background:var(--surface) !important; color: black !important; }
+  #invoicePrint, #invoicePrint * { color: black !important; background:var(--surface) !important; border-color: #999 !important; }
 }
 </style>
 {% endblock %}

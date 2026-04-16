@@ -24,14 +24,14 @@
 
 {% if not all_resp %}
 <div class="card" style="border:2px dashed #dee2e6;">
-  <div class="card-body text-center py-5" style="color:#aaa;">
+  <div class="card-body text-center py-5" style="color:var(--muted);">
     <i class="bi bi-person-check" style="font-size:40px;"></i>
     <p class="mt-3 mb-0">No responsibilities assigned yet.</p>
   </div>
 </div>
 {% endif %}
 
-{% set user_colors = {'kishan':'#1B3A6B','hirakraj':'#1565c0','tirth':'#6a1b9a','jenish':'#e65100'} %}
+{% set user_colors = {'kishan':'#1B3A6B','hirakraj':'var(--gold)','tirth':'#6a1b9a','jenish':'#e65100'} %}
 
 {% for username, items in grouped.items() %}
 <div class="card mb-4">
@@ -57,10 +57,10 @@
       </thead>
       <tbody>
         {% for r in items %}
-        <tr style="{% if r.status == 'Completed' %}opacity:0.5;{% elif r.status == 'On Hold' %}background:#fff8e1;{% endif %}">
+        <tr style="{% if r.status == 'Completed' %}opacity:0.5;{% elif r.status == 'On Hold' %}background:var(--surface)e1;{% endif %}">
           <td class="ps-3 fw-semibold">{{ r.title }}</td>
-          <td><span class="badge" style="background:#e8eaf6;color:#283593;font-size:11px;">{{ r.category }}</span></td>
-          <td style="color:#666;">{{ r.description or '—' }}</td>
+          <td><span class="badge" style="background:rgba(100,130,220,0.15);color:#9fa8da;font-size:11px;">{{ r.category }}</span></td>
+          <td style="color:var(--muted);">{{ r.description or '—' }}</td>
           <td>
             <form method="POST" action="/responsibilities">
               <input type="hidden" name="action" value="status">
@@ -73,7 +73,7 @@
               </select>
             </form>
           </td>
-          <td style="color:#888;font-size:12px;">{{ team.get(r.assigned_by, r.assigned_by) }}</td>
+          <td style="color:var(--muted);font-size:12px;">{{ team.get(r.assigned_by, r.assigned_by) }}</td>
           <td>
             <form method="POST" action="/responsibilities" onsubmit="return confirm('Delete?')">
               <input type="hidden" name="action" value="delete">
@@ -95,7 +95,7 @@
 <div class="modal fade" id="newRespModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+      <div class="modal-header" style="background:var(--surface2);color:var(--text);">
         <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Assign Responsibility</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>

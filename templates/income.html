@@ -51,7 +51,7 @@
 <form method="GET" action="/income" class="card mb-3 p-3">
   <div class="row g-2 align-items-end">
     <div class="col-md-3">
-      <label class="form-label" style="font-size:11px;font-weight:600;color:#666;">CATEGORY</label>
+      <label class="form-label" style="font-size:11px;font-weight:600;color:var(--muted);">CATEGORY</label>
       <select name="category" class="form-select form-select-sm">
         <option value="">All Categories</option>
         {% for cat in income_categories %}
@@ -60,7 +60,7 @@
       </select>
     </div>
     <div class="col-md-2">
-      <label class="form-label" style="font-size:11px;font-weight:600;color:#666;">MONTH</label>
+      <label class="form-label" style="font-size:11px;font-weight:600;color:var(--muted);">MONTH</label>
       <input type="month" name="month" class="form-control form-control-sm" value="{{ filter_month }}">
     </div>
     <div class="col-md-3 d-flex gap-2">
@@ -74,15 +74,15 @@
 
 <!-- INCOME TABLE -->
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center" style="font-size:13px;background:#f8f9fa;">
+  <div class="card-header d-flex justify-content-between align-items-center" style="font-size:13px;background:var(--surface2);">
     <span><i class="bi bi-table me-2 text-muted"></i>Income Log</span>
-    <span class="badge" style="background:#2e7d32;color:#fff;">
+    <span class="badge" style="">
       ₹{{ "{:,.0f}".format(income_entries|sum(attribute='amount')|float) }} total
     </span>
   </div>
   <div class="card-body p-0">
     {% if not income_entries %}
-    <div class="text-center py-5" style="color:#aaa;">
+    <div class="text-center py-5" style="color:var(--muted);">
       <i class="bi bi-cash-stack" style="font-size:36px;"></i>
       <p class="mt-3">No income entries found. Add your first entry.</p>
     </div>
@@ -102,18 +102,18 @@
         <tbody>
           {% for e in income_entries %}
           <tr>
-            <td class="ps-3" style="color:#888;">
+            <td class="ps-3" style="color:var(--muted);">
               {{ e.date | string | truncate(10,True,'') }}
-              <br><small style="font-size:10px;color:#aaa;">{{ e.month_year }}</small>
+              <br><small style="font-size:10px;color:var(--muted);">{{ e.month_year }}</small>
             </td>
             <td class="fw-semibold">{{ e.client_source }}</td>
             <td>
-              <span class="badge" style="font-size:11px;background:#e8f5e9;color:#1b5e20;">
+              <span class="badge" style="font-size:11px;background:rgba(76,175,80,0.12);color:var(--gold);">
                 {{ e.income_category }}
               </span>
             </td>
-            <td style="color:#555;">{{ e.description or '—' }}</td>
-            <td class="text-end pe-3 fw-semibold" style="color:#2e7d32;">
+            <td style="color:var(--muted);">{{ e.description or '—' }}</td>
+            <td class="text-end pe-3 fw-semibold" style="color:#81c784;">
               ₹{{ "{:,.0f}".format(e.amount|float) }}
             </td>
             <td>
@@ -135,9 +135,9 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          <tr style="background:#f8f9fa;font-weight:700;">
+          <tr style="background:var(--surface2);font-weight:700;">
             <td colspan="4" class="ps-3 text-end" style="font-size:13px;">Total</td>
-            <td class="text-end pe-3" style="color:#2e7d32;font-size:14px;">
+            <td class="text-end pe-3" style="color:#81c784;font-size:14px;">
               ₹{{ "{:,.0f}".format(income_entries|sum(attribute='amount')|float) }}
             </td>
             <td></td>
@@ -153,7 +153,7 @@
 <div class="modal fade" id="addIncomeModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header" style="background:#2e7d32;color:#fff;">
+      <div class="modal-header" style="">
         <h5 class="modal-title" style="font-size:15px;"><i class="bi bi-plus-circle me-2"></i>Add Income</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -193,7 +193,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-sm" style="background:#2e7d32;color:#fff;">Save Income</button>
+          <button type="submit" class="btn btn-sm" style="">Save Income</button>
         </div>
       </form>
     </div>
@@ -204,7 +204,7 @@
 <div class="modal fade" id="editIncomeModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header" style="background:#2e7d32;color:#fff;">
+      <div class="modal-header" style="">
         <h5 class="modal-title" style="font-size:15px;"><i class="bi bi-pencil me-2"></i>Edit Income</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -242,7 +242,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-sm" style="background:#2e7d32;color:#fff;">Update Income</button>
+          <button type="submit" class="btn btn-sm" style="">Update Income</button>
         </div>
       </form>
     </div>
