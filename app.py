@@ -2506,11 +2506,14 @@ def invoice_send_email(invoice_id):
     user_cfg        = db.get_user_settings(current_user.username)
 
     # Build HTML body
+    def _sac_tag(it):
+        if it.get('sac_code'):
+            return '<br><small style="color:#aaa">(SAC: ' + it['sac_code'] + ')</small>'
+        return ''
     items_rows = "".join(
-        f"<tr><td style='padding:8px;border:1px solid #333;'>{it['description']}"
-        f"{'<br><small style=\"color:#aaa\">(SAC: ' + it['sac_code'] + ')</small>' if it.get('sac_code') else ''}</td>"
+        f"<tr><td style='padding:8px;border:1px solid #333;'>{it['description']}{_sac_tag(it)}</td>"
         f"<td style='padding:8px;border:1px solid #333;text-align:center;'>{it['unit']}</td>"
-        f"<td style='padding:8px;border:1px solid #333;text-align:right;'>₹{float(it['amount'] or 0):,.0f}</td></tr>"
+        f"<td style='padding:8px;border:1px solid #333;text-align:right;'>&#8377;{float(it['amount'] or 0):,.0f}</td></tr>"
         for it in items
     )
     html = f"""
