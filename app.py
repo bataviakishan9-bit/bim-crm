@@ -186,11 +186,13 @@ def require_login():
 
 @app.route("/")
 def dashboard():
-    stats     = db.get_stats()
-    tasks     = db.get_tasks(status="Not Started")
-    due_leads = db.get_due_email_leads()
+    stats         = db.get_stats()
+    tasks         = db.get_tasks(status="Not Started")
+    due_leads     = db.get_due_email_leads()
+    invalid_leads = db.get_invalid_leads_with_bounce()
     return render_template("dashboard.html", stats=stats, tasks=tasks,
-                           due_leads=due_leads, now=datetime.now())
+                           due_leads=due_leads, invalid_leads=invalid_leads,
+                           now=datetime.now())
 
 
 # ── LEADS LIST ─────────────────────────────────────────────────────────────────

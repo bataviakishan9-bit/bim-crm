@@ -730,6 +730,38 @@ def get_stats() -> dict:
         "recent_emails": recent_emails,
     }
 
+# ── INVALID LEADS WITH BOUNCE REASON ──────────────────────────────────────────
+
+def get_invalid_leads_with_bounce() -> list:
+    """Return Invalid leads joined with their latest bounce reason from email_logs."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        SELECT l.*,
+               el.bounce_reason,
+               el.sent_at as bounced_at
+        FROM leads l
+        LEFT JOIN (
+            SELECT lead_id, bounce_reason, sent_at
+            FROM email_logs
+            WHERE bounced = 1
+            ORDER BY sent_at DESC
+        ) el ON el.lead_id = l.id
+        WHERE l.status = 'Invalid'
+        ORDER BY l.updated_at DESC
+    """)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    # Deduplicate (keep first/latest per lead)
+    seen = set()
+    result = []
+    for r in rows:
+        if r["id"] not in seen:
+            seen.add(r["id"])
+            result.append(r)
+    return result
+
+
 # ── DUE EMAILS ────────────────────────────────────────────────────────────────
 
 def get_due_email_leads() -> list:
