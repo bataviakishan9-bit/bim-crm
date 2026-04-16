@@ -1753,9 +1753,9 @@ def run_migration():
     leads_done = email_done = replies_done = tasks_done = 0
 
     # Check if already migrated
-    c.execute("SELECT COUNT(*) FROM leads")
+    c.execute("SELECT COUNT(*) AS cnt FROM leads")
     row = c.fetchone()
-    existing = row[0] if isinstance(row, (list, tuple)) else row["count"]
+    existing = row["cnt"] if isinstance(row, dict) else (row[0] if row else 0)
     if existing > 0:
         conn.close()
         flash(f"Already has {existing} leads — migration skipped.", "warning")
@@ -1790,6 +1790,22 @@ def run_migration():
     # ── Email logs ─────────────────────────────────────────────────────────────
     for r in data.get("email_logs", []):
         try:
+            # Normalise field names from SQLite export to current schema
+            row = {
+                "id":            r.get("id"),
+                "lead_id":       r.get("lead_id"),
+                "subject":       r.get("subject"),
+                "body":          r.get("body"),
+                "template_key":  r.get("template_key") or r.get("template_used"),
+                "sequence_step": r.get("sequence_step"),
+                "sent_at":       r.get("sent_at"),
+                "opened_at":     r.get("opened_at") or r.get("opened"),
+                "open_count":    r.get("open_count", 0),
+                "clicked_at":    r.get("clicked_at") or r.get("clicked"),
+                "bounced_at":    r.get("bounced_at") or r.get("bounced"),
+                "bounce_reason": r.get("bounce_reason"),
+                "status":        r.get("status"),
+            }
             c.execute(db._named("""
                 INSERT INTO email_logs (
                     id, lead_id, subject, body, template_key, sequence_step,
@@ -1798,12 +1814,12 @@ def run_migration():
                     :id,:lead_id,:subject,:body,:template_key,:sequence_step,
                     :sent_at,:opened_at,:open_count,:clicked_at,:bounced_at,:bounce_reason,:status
                 )
-            """), r)
+            """), row)
             email_done += 1
         except Exception:
             pass
     conn.commit()
-    if db._is_pg():
+    if db._is_pg() and email_done:
         c.execute("SELECT setval(pg_get_serial_sequence('email_logs','id'), (SELECT MAX(id) FROM email_logs))")
         conn.commit()
 
@@ -1818,7 +1834,7 @@ def run_migration():
         except Exception:
             pass
     conn.commit()
-    if db._is_pg():
+    if db._is_pg() and replies_done:
         c.execute("SELECT setval(pg_get_serial_sequence('replies','id'), (SELECT MAX(id) FROM replies))")
         conn.commit()
 
@@ -1826,8 +1842,8 @@ def run_migration():
     for r in data.get("tasks", []):
         try:
             c.execute(db._named("""
-                INSERT INTO tasks (id, lead_id, subject, due_date, priority, description, completed, created_at)
-                VALUES (:id,:lead_id,:subject,:due_date,:priority,:description,:completed,:created_at)
+                INSERT INTO tasks (id, lead_id, subject, due_date, priority, description, status, created_at)
+                VALUES (:id,:lead_id,:subject,:due_date,:priority,:description,:status,:created_at)
             """), r)
             tasks_done += 1
         except Exception:
