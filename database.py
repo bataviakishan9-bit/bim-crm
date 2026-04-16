@@ -369,6 +369,38 @@ def init_db():
         )
     """)
 
+    # expenses table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS expenses (
+            id           {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            date         DATE NOT NULL,
+            month_year   TEXT NOT NULL,
+            partner      TEXT NOT NULL,
+            expense_type TEXT NOT NULL,
+            project_name TEXT,
+            category     TEXT NOT NULL,
+            description  TEXT,
+            amount       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_by   TEXT,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # income_entries table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS income_entries (
+            id               {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            date             DATE NOT NULL,
+            month_year       TEXT NOT NULL,
+            client_source    TEXT NOT NULL,
+            income_category  TEXT NOT NULL,
+            description      TEXT,
+            amount           NUMERIC(12,2) NOT NULL DEFAULT 0,
+            created_by       TEXT,
+            created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -1036,3 +1068,177 @@ def get_whatsapp_stats() -> dict:
     today = (_fetchone(c.fetchone()) or {}).get("n", 0)
     conn.close()
     return {"total": total, "today": today}
+
+
+# ── EXPENSES ──────────────────────────────────────────────────────────────────
+
+EXPENSE_CATEGORIES = {
+    "Common": [
+        "Electricity & Utilities", "Internet & Telecom", "Office Supplies & Stationery",
+        "Software Subscriptions", "Marketing & Advertising", "Travel & Transportation",
+        "Meals & Entertainment", "Professional Services", "Maintenance & Repairs",
+        "Miscellaneous Common",
+    ],
+    "Project": [
+        "Labour / Manpower", "Materials & Supplies", "Equipment & Tools",
+        "Subcontractor / Vendor", "Site Visits & Travel", "Software / Licenses",
+        "Documentation & Legal", "Miscellaneous Project",
+    ],
+    "Partner": [
+        "Travel Reimbursement", "Meal Reimbursement", "Client Entertainment",
+        "Training & Development", "Professional Membership", "Other Reimbursement",
+    ],
+}
+
+INCOME_CATEGORIES = [
+    "Project Revenue", "Consulting Fees", "Retainer / AMC",
+    "Service Charges", "Grant / Subsidy", "Salary / Draw", "Other Income",
+]
+
+PARTNERS = {
+    "hirakraj": {"name": "Hirakraj Bapat", "role": "CEO", "color": "#2980B9"},
+    "jenish"  : {"name": "Jenish Patel",   "role": "CTO", "color": "#8E44AD"},
+    "tirth"   : {"name": "Tirth Patel",    "role": "COO", "color": "#E74C3C"},
+    "kishan"  : {"name": "Kishan Batavia", "role": "CFO", "color": "#16A085"},
+}
+
+PROJECTS = ["Extension", "Project Beta", "Project Gamma", "Project Delta", "Project Epsilon"]
+
+
+def get_expenses(partner=None, month_year=None, expense_type=None, project=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    sql = "SELECT * FROM expenses WHERE 1=1"
+    params = []
+    if partner:
+        sql += _q(" AND partner=?"); params.append(partner)
+    if month_year:
+        sql += _q(" AND month_year=?"); params.append(month_year)
+    if expense_type:
+        sql += _q(" AND expense_type=?"); params.append(expense_type)
+    if project:
+        sql += _q(" AND project_name=?"); params.append(project)
+    sql += " ORDER BY date DESC, id DESC"
+    c.execute(sql, params)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+
+def create_expense(data: dict) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    sql = _named("""
+        INSERT INTO expenses (date, month_year, partner, expense_type, project_name, category, description, amount, created_by)
+        VALUES (:date, :month_year, :partner, :expense_type, :project_name, :category, :description, :amount, :created_by)
+    """ + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, data)
+    lid = _lastrow(c, "expenses")
+    conn.commit()
+    conn.close()
+    return lid
+
+
+def update_expense(expense_id: int, data: dict):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_named("""
+        UPDATE expenses SET date=:date, month_year=:month_year, partner=:partner,
+            expense_type=:expense_type, project_name=:project_name, category=:category,
+            description=:description, amount=:amount WHERE id=:id
+    """), {**data, "id": expense_id})
+    conn.commit()
+    conn.close()
+
+
+def delete_expense(expense_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM expenses WHERE id=?"), (expense_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_expense_summary() -> dict:
+    """Returns totals by month, partner, type, and category."""
+    conn = get_db()
+    c = conn.cursor()
+
+    c.execute("SELECT month_year, SUM(amount) as total FROM expenses GROUP BY month_year ORDER BY MIN(date)")
+    by_month = _fetchall(c.fetchall())
+
+    c.execute("SELECT partner, SUM(amount) as total FROM expenses GROUP BY partner ORDER BY total DESC")
+    by_partner = _fetchall(c.fetchall())
+
+    c.execute("SELECT expense_type, SUM(amount) as total FROM expenses GROUP BY expense_type")
+    by_type = _fetchall(c.fetchall())
+
+    c.execute("SELECT category, SUM(amount) as total FROM expenses GROUP BY category ORDER BY total DESC LIMIT 10")
+    by_category = _fetchall(c.fetchall())
+
+    c.execute("SELECT COALESCE(SUM(amount),0) as total FROM expenses")
+    total_exp = (_fetchone(c.fetchone()) or {}).get("total", 0)
+
+    c.execute("SELECT COALESCE(SUM(amount),0) as total FROM income_entries")
+    total_inc = (_fetchone(c.fetchone()) or {}).get("total", 0)
+
+    conn.close()
+    return {
+        "by_month"   : by_month,
+        "by_partner" : by_partner,
+        "by_type"    : by_type,
+        "by_category": by_category,
+        "total_expenses": float(total_exp or 0),
+        "total_income"  : float(total_inc or 0),
+    }
+
+
+# ── INCOME ────────────────────────────────────────────────────────────────────
+
+def get_income(month_year=None, category=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    sql = "SELECT * FROM income_entries WHERE 1=1"
+    params = []
+    if month_year:
+        sql += _q(" AND month_year=?"); params.append(month_year)
+    if category:
+        sql += _q(" AND income_category=?"); params.append(category)
+    sql += " ORDER BY date DESC, id DESC"
+    c.execute(sql, params)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+
+def create_income(data: dict) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    sql = _named("""
+        INSERT INTO income_entries (date, month_year, client_source, income_category, description, amount, created_by)
+        VALUES (:date, :month_year, :client_source, :income_category, :description, :amount, :created_by)
+    """ + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, data)
+    lid = _lastrow(c, "income_entries")
+    conn.commit()
+    conn.close()
+    return lid
+
+
+def update_income(income_id: int, data: dict):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_named("""
+        UPDATE income_entries SET date=:date, month_year=:month_year, client_source=:client_source,
+            income_category=:income_category, description=:description, amount=:amount WHERE id=:id
+    """), {**data, "id": income_id})
+    conn.commit()
+    conn.close()
+
+
+def delete_income(income_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM income_entries WHERE id=?"), (income_id,))
+    conn.commit()
+    conn.close()

@@ -1935,6 +1935,138 @@ def wa_templates_api():
     return jsonify(WA_TEMPLATES)
 
 
+# ── EXPENSES ──────────────────────────────────────────────────────────────────
+
+@app.route("/expenses", methods=["GET", "POST"])
+@login_required
+def expenses():
+    filter_partner = request.args.get("partner", "")
+    filter_month   = request.args.get("month", "")
+    filter_type    = request.args.get("type", "")
+    filter_project = request.args.get("project", "")
+
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "create":
+            raw_date = request.form.get("date", "")
+            try:
+                month_year = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%b %Y")
+            except Exception:
+                month_year = ""
+            data = {
+                "date"        : raw_date,
+                "month_year"  : month_year,
+                "partner"     : request.form.get("partner", ""),
+                "expense_type": request.form.get("expense_type", "Common"),
+                "project_name": request.form.get("project_name", "") or None,
+                "category"    : request.form.get("category", ""),
+                "description" : request.form.get("description", "").strip(),
+                "amount"      : float(request.form.get("amount", 0) or 0),
+                "created_by"  : current_user.username,
+            }
+            db.create_expense(data)
+            flash("Expense added.", "success")
+        elif action == "edit":
+            eid = int(request.form.get("expense_id"))
+            raw_date = request.form.get("date", "")
+            try:
+                month_year = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%b %Y")
+            except Exception:
+                month_year = ""
+            db.update_expense(eid, {
+                "date"        : raw_date,
+                "month_year"  : month_year,
+                "partner"     : request.form.get("partner", ""),
+                "expense_type": request.form.get("expense_type", "Common"),
+                "project_name": request.form.get("project_name", "") or None,
+                "category"    : request.form.get("category", ""),
+                "description" : request.form.get("description", "").strip(),
+                "amount"      : float(request.form.get("amount", 0) or 0),
+            })
+            flash("Expense updated.", "success")
+        elif action == "delete":
+            db.delete_expense(int(request.form.get("expense_id")))
+            flash("Expense deleted.", "info")
+        return redirect(url_for("expenses", partner=filter_partner, month=filter_month,
+                                type=filter_type, project=filter_project))
+
+    rows = db.get_expenses(
+        partner=filter_partner or None,
+        month_year=filter_month or None,
+        expense_type=filter_type or None,
+        project=filter_project or None,
+    )
+    summary = db.get_expense_summary()
+    return render_template("expenses.html",
+                           expenses=rows,
+                           summary=summary,
+                           categories=db.EXPENSE_CATEGORIES,
+                           partners=db.PARTNERS,
+                           projects=db.PROJECTS,
+                           income_categories=db.INCOME_CATEGORIES,
+                           filter_partner=filter_partner,
+                           filter_month=filter_month,
+                           filter_type=filter_type,
+                           filter_project=filter_project,
+                           now=datetime.now())
+
+
+@app.route("/income", methods=["GET", "POST"])
+@login_required
+def income():
+    filter_month    = request.args.get("month", "")
+    filter_category = request.args.get("category", "")
+
+    if request.method == "POST":
+        action = request.form.get("action", "create")
+        if action == "create":
+            raw_date = request.form.get("date", "")
+            try:
+                month_year = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%b %Y")
+            except Exception:
+                month_year = ""
+            db.create_income({
+                "date"           : raw_date,
+                "month_year"     : month_year,
+                "client_source"  : request.form.get("client_source", "").strip(),
+                "income_category": request.form.get("income_category", ""),
+                "description"    : request.form.get("description", "").strip(),
+                "amount"         : float(request.form.get("amount", 0) or 0),
+                "created_by"     : current_user.username,
+            })
+            flash("Income entry added.", "success")
+        elif action == "edit":
+            iid = int(request.form.get("income_id"))
+            raw_date = request.form.get("date", "")
+            try:
+                month_year = datetime.strptime(raw_date, "%Y-%m-%d").strftime("%b %Y")
+            except Exception:
+                month_year = ""
+            db.update_income(iid, {
+                "date"           : raw_date,
+                "month_year"     : month_year,
+                "client_source"  : request.form.get("client_source", "").strip(),
+                "income_category": request.form.get("income_category", ""),
+                "description"    : request.form.get("description", "").strip(),
+                "amount"         : float(request.form.get("amount", 0) or 0),
+            })
+            flash("Income updated.", "success")
+        elif action == "delete":
+            db.delete_income(int(request.form.get("income_id")))
+            flash("Income entry deleted.", "info")
+        return redirect(url_for("income", month=filter_month, category=filter_category))
+
+    rows = db.get_income(month_year=filter_month or None, category=filter_category or None)
+    summary = db.get_expense_summary()
+    return render_template("income.html",
+                           income_entries=rows,
+                           summary=summary,
+                           income_categories=db.INCOME_CATEGORIES,
+                           filter_month=filter_month,
+                           filter_category=filter_category,
+                           now=datetime.now())
+
+
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

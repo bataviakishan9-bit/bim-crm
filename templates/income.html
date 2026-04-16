@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-cash-stack me-2"></i>Income Log</h4>
+    <small class="text-muted">FY 2026-27 — All revenue and income entries</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/expenses" class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-receipt me-1"></i> Expenses
+    </a>
+    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+      <i class="bi bi-plus-lg me-1"></i> Add Income
+    </button>
+  </div>
+</div>
+
+<!-- SUMMARY CARDS -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="number text-success">₹{{ "{:,.0f}".format(summary.total_income) }}</div>
+      <div class="label">Total Income</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="number text-danger">₹{{ "{:,.0f}".format(summary.total_expenses) }}</div>
+      <div class="label">Total Expenses</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      {% set net = summary.total_income - summary.total_expenses %}
+      <div class="number" style="color:{{ '#2e7d32' if net >= 0 else '#c62828' }}">
+        ₹{{ "{:,.0f}".format(net|abs) }}
+      </div>
+      <div class="label">Net {{ 'Surplus' if net >= 0 else 'Deficit' }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="number">{{ income_entries|length }}</div>
+      <div class="label">Entries (filtered)</div>
+    </div>
+  </div>
+</div>
+
+<!-- FILTERS -->
+<form method="GET" action="/income" class="card mb-3 p-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label" style="font-size:11px;font-weight:600;color:#666;">CATEGORY</label>
+      <select name="category" class="form-select form-select-sm">
+        <option value="">All Categories</option>
+        {% for cat in income_categories %}
+        <option value="{{ cat }}" {{ 'selected' if filter_category == cat }}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label" style="font-size:11px;font-weight:600;color:#666;">MONTH</label>
+      <input type="month" name="month" class="form-control form-control-sm" value="{{ filter_month }}">
+    </div>
+    <div class="col-md-3 d-flex gap-2">
+      <button type="submit" class="btn btn-bim btn-sm flex-grow-1">
+        <i class="bi bi-funnel me-1"></i> Filter
+      </button>
+      <a href="/income" class="btn btn-outline-secondary btn-sm">Clear</a>
+    </div>
+  </div>
+</form>
+
+<!-- INCOME TABLE -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center" style="font-size:13px;background:#f8f9fa;">
+    <span><i class="bi bi-table me-2 text-muted"></i>Income Log</span>
+    <span class="badge" style="background:#2e7d32;color:#fff;">
+      ₹{{ "{:,.0f}".format(income_entries|sum(attribute='amount')|float) }} total
+    </span>
+  </div>
+  <div class="card-body p-0">
+    {% if not income_entries %}
+    <div class="text-center py-5" style="color:#aaa;">
+      <i class="bi bi-cash-stack" style="font-size:36px;"></i>
+      <p class="mt-3">No income entries found. Add your first entry.</p>
+    </div>
+    {% else %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th class="ps-3">Date</th>
+            <th>Client / Source</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th class="text-end pe-3">Amount (₹)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in income_entries %}
+          <tr>
+            <td class="ps-3" style="color:#888;">
+              {{ e.date | string | truncate(10,True,'') }}
+              <br><small style="font-size:10px;color:#aaa;">{{ e.month_year }}</small>
+            </td>
+            <td class="fw-semibold">{{ e.client_source }}</td>
+            <td>
+              <span class="badge" style="font-size:11px;background:#e8f5e9;color:#1b5e20;">
+                {{ e.income_category }}
+              </span>
+            </td>
+            <td style="color:#555;">{{ e.description or '—' }}</td>
+            <td class="text-end pe-3 fw-semibold" style="color:#2e7d32;">
+              ₹{{ "{:,.0f}".format(e.amount|float) }}
+            </td>
+            <td>
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary" style="padding:2px 7px;font-size:11px;"
+                        onclick="editIncome({{ e|tojson }})">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form method="POST" action="/income" onsubmit="return confirm('Delete this entry?')">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="income_id" value="{{ e.id }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" style="padding:2px 7px;font-size:11px;">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:#f8f9fa;font-weight:700;">
+            <td colspan="4" class="ps-3 text-end" style="font-size:13px;">Total</td>
+            <td class="text-end pe-3" style="color:#2e7d32;font-size:14px;">
+              ₹{{ "{:,.0f}".format(income_entries|sum(attribute='amount')|float) }}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ADD INCOME MODAL -->
+<div class="modal fade" id="addIncomeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#2e7d32;color:#fff;">
+        <h5 class="modal-title" style="font-size:15px;"><i class="bi bi-plus-circle me-2"></i>Add Income</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/income">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Date</label>
+              <input type="date" name="date" class="form-control form-control-sm"
+                     value="{{ now.strftime('%Y-%m-%d') }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Category</label>
+              <select name="income_category" class="form-select form-select-sm" required>
+                {% for cat in income_categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Client / Source</label>
+              <input type="text" name="client_source" class="form-control form-control-sm"
+                     placeholder="Client name or income source" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Amount (₹)</label>
+              <input type="number" name="amount" class="form-control form-control-sm"
+                     placeholder="0.00" step="0.01" min="0" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Description</label>
+              <textarea name="description" class="form-control form-control-sm" rows="2"
+                        placeholder="Brief description..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm" style="background:#2e7d32;color:#fff;">Save Income</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT INCOME MODAL -->
+<div class="modal fade" id="editIncomeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#2e7d32;color:#fff;">
+        <h5 class="modal-title" style="font-size:15px;"><i class="bi bi-pencil me-2"></i>Edit Income</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/income">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="income_id" id="editIncomeId">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Date</label>
+              <input type="date" name="date" id="editIncomeDate" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Category</label>
+              <select name="income_category" id="editIncomeCategory" class="form-select form-select-sm" required>
+                {% for cat in income_categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Client / Source</label>
+              <input type="text" name="client_source" id="editIncomeClient" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Amount (₹)</label>
+              <input type="number" name="amount" id="editIncomeAmount" class="form-control form-control-sm"
+                     step="0.01" min="0" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:12px;font-weight:600;">Description</label>
+              <textarea name="description" id="editIncomeDesc" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm" style="background:#2e7d32;color:#fff;">Update Income</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function editIncome(e) {
+  document.getElementById('editIncomeId').value       = e.id;
+  document.getElementById('editIncomeDate').value     = String(e.date).substring(0,10);
+  document.getElementById('editIncomeClient').value   = e.client_source;
+  document.getElementById('editIncomeCategory').value = e.income_category;
+  document.getElementById('editIncomeAmount').value   = e.amount;
+  document.getElementById('editIncomeDesc').value     = e.description || '';
+  new bootstrap.Modal(document.getElementById('editIncomeModal')).show();
+}
+</script>
+
+{% endblock %}
