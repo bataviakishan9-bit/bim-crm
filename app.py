@@ -642,14 +642,20 @@ def replies():
 
 
 @app.route("/replies/sync-delivery")
+@login_required
 def sync_delivery():
-    """Scan Zoho inbox for bounces, OOO, and replies. Auto-mark leads."""
-    all_leads  = db.get_all_leads()
-    lead_map   = {l["email"].lower(): l for l in all_leads}
+    """Scan Zoho inbox for bounces, OOO, and replies. Auto-mark leads.
+    Uses message-ID deduplication — each Zoho message is processed exactly once.
+    """
+    all_leads   = db.get_all_leads()
+    lead_map    = {l["email"].lower(): l for l in all_leads}
     lead_emails = list(lead_map.keys())
 
+    # Load already-processed message IDs so we never double-count
+    already_synced = db.get_synced_message_ids()
+
     try:
-        status = mail_client.fetch_delivery_status(lead_emails)
+        status = mail_client.fetch_delivery_status(lead_emails, already_synced=already_synced)
     except Exception as e:
         flash(f"Zoho scan failed: {e}", "danger")
         return redirect(url_for("replies"))
@@ -657,7 +663,6 @@ def sync_delivery():
     bounced_count = 0
     replied_count = 0
     ooo_count     = 0
-
     delayed_count = 0
 
     # ── Handle bounces / delivery failures ───────────────────────────
@@ -676,7 +681,6 @@ def sync_delivery():
         subject_line = b.get("subject", "")
 
         if is_delayed and not is_permanent:
-            # Temporary failure (421, 450) — log as warning, don't invalidate lead
             db.add_reply(
                 lead_id    = lead["id"],
                 from_email = raw_sender,
@@ -687,7 +691,6 @@ def sync_delivery():
             )
             delayed_count += 1
         else:
-            # Permanent failure — mark email bounced, set lead Invalid
             logs = db.get_email_logs(lead["id"])
             if logs:
                 db.mark_email_bounced(logs[0]["id"], reason)
@@ -742,6 +745,12 @@ def sync_delivery():
         db.update_lead_status(lead["id"], "Warm")
         ooo_count += 1
 
+    # ── Persist processed message IDs so they're never re-processed ──
+    new_ids = status.get("new_msg_ids", {})
+    db.mark_messages_synced(new_ids.get("bounce", []), "bounce")
+    db.mark_messages_synced(new_ids.get("reply", []),  "reply")
+    db.mark_messages_synced(new_ids.get("ooo", []),    "ooo")
+
     total = bounced_count + delayed_count + replied_count + ooo_count
     parts = []
     if bounced_count:  parts.append(f"{bounced_count} hard bounce(s)")
@@ -751,6 +760,28 @@ def sync_delivery():
     msg = "Zoho scan complete — " + (", ".join(parts) if parts else "nothing new found")
     flash(msg, "success" if total > 0 else "info")
     return redirect(url_for("replies"))
+
+
+@app.route("/replies/sync-status")
+@login_required
+def sync_status():
+    """Debug: show Zoho connection status and sync stats as JSON."""
+    from flask import Response
+    import json as _json
+    if current_user.username != "kishan":
+        return "Not authorized", 403
+
+    conn_test = mail_client.test_connection()
+    synced_count = len(db.get_synced_message_ids())
+
+    info = {
+        "zoho_connection": conn_test,
+        "zoho_account_id": os.getenv("ZOHO_MAIL_ACCOUNT_ID", ""),
+        "zoho_dc"        : os.getenv("ZOHO_DC", "in"),
+        "synced_messages": synced_count,
+        "hint": "If zoho_connection.ok is false, check ZOHO_MAIL_ACCOUNT_ID and credentials in Render env vars.",
+    }
+    return Response(_json.dumps(info, indent=2), mimetype="application/json")
 
 
 @app.route("/replies/sync")

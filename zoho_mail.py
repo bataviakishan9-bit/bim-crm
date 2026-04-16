@@ -320,19 +320,24 @@ class ZohoMailClient:
 
         return reason, is_permanent, is_delayed
 
-    def fetch_delivery_status(self, lead_emails: list) -> dict:
+    def fetch_delivery_status(self, lead_emails: list, already_synced: set = None) -> dict:
         """
         Scan Zoho Mail for delivery notifications, OOO, and real replies.
+        Skips any message whose ID is in already_synced.
 
         Returns:
         {
-          "bounced":  [{"email", "subject", "reason", "is_permanent", "is_delayed", "received_at", "raw_sender"}],
-          "replied":  [{"email", "subject", "body", "received_at"}],
-          "ooo":      [{"email", "subject", "received_at"}],
+          "bounced":    [{"email", "subject", "reason", "is_permanent", "is_delayed", "received_at", "raw_sender"}],
+          "replied":    [{"email", "subject", "body", "received_at"}],
+          "ooo":        [{"email", "subject", "received_at"}],
+          "new_msg_ids": {type: [ids]}   — for saving to DB after processing
         }
         """
         if not ZOHO_ACCOUNT_ID:
-            return {"bounced": [], "replied": [], "ooo": []}
+            return {"bounced": [], "replied": [], "ooo": [], "new_msg_ids": {}}
+
+        if already_synced is None:
+            already_synced = set()
 
         BOUNCE_SENDERS = [
             "mailer-daemon", "postmaster", "mail-delivery", "delivery-status",
@@ -352,7 +357,7 @@ class ZohoMailClient:
         try:
             token = self.get_access_token()
             lead_email_set = {e.lower() for e in lead_emails}
-            result = {"bounced": [], "replied": [], "ooo": []}
+            result = {"bounced": [], "replied": [], "ooo": [], "new_msg_ids": {"bounce": [], "reply": [], "ooo": []}}
 
             # ── Fetch last 200 messages across all folders ─────────────
             # NOTE: no folderId filter — Zoho uses numeric IDs, not "inbox"
@@ -367,13 +372,16 @@ class ZohoMailClient:
                 return result
 
             messages = r.json().get("data", [])
-            log.info("Delivery scan: processing %d messages", len(messages))
+            log.info("Delivery scan: %d total messages, %d already synced", len(messages), len(already_synced))
 
-            # Track seen message IDs to avoid duplicate entries
+            # Track seen message IDs within this batch (in-memory dedup)
             seen_msg_ids = set()
 
             for msg in messages:
                 msg_id    = str(msg.get("messageId") or "")
+                # Skip if already processed in a previous sync
+                if msg_id in already_synced:
+                    continue
                 if msg_id in seen_msg_ids:
                     continue
                 seen_msg_ids.add(msg_id)
@@ -431,6 +439,8 @@ class ZohoMailClient:
                         "received_at" : recv,
                         "raw_sender"  : sender,
                     })
+                    if msg_id:
+                        result["new_msg_ids"]["bounce"].append(msg_id)
                     continue
 
                 # ── 2. Out-of-office detection ─────────────────────────
@@ -441,6 +451,8 @@ class ZohoMailClient:
                         "subject"    : subject,
                         "received_at": recv,
                     })
+                    if msg_id:
+                        result["new_msg_ids"]["ooo"].append(msg_id)
                     log.info("OOO from %s", sender)
                     continue
 
@@ -452,11 +464,14 @@ class ZohoMailClient:
                         "body"       : summary,
                         "received_at": recv,
                     })
+                    if msg_id:
+                        result["new_msg_ids"]["reply"].append(msg_id)
                     log.info("Reply from %s", sender)
 
             log.info(
-                "Scan done: %d DSNs, %d replies, %d OOO",
+                "Scan done: %d DSNs, %d replies, %d OOO (skipped %d already-synced)",
                 len(result["bounced"]), len(result["replied"]), len(result["ooo"]),
+                len(already_synced),
             )
             return result
 

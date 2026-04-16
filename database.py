@@ -465,8 +465,64 @@ def init_db():
         )
     """)
 
+    # zoho_synced_messages: tracks which Zoho message IDs have already been processed
+    # so sync-delivery never creates duplicate bounce/reply entries
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS zoho_synced_messages (
+            id          {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            message_id  TEXT NOT NULL UNIQUE,
+            processed_at TEXT NOT NULL,
+            msg_type    TEXT DEFAULT 'unknown'
+        )
+    """)
+
     conn.commit()
     conn.close()
+
+
+# ── ZOHO SYNC TRACKING ─────────────────────────────────────────────────────────
+
+def get_synced_message_ids() -> set:
+    """Return the set of already-processed Zoho message IDs."""
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        c.execute("SELECT message_id FROM zoho_synced_messages")
+        rows = c.fetchall()
+        return {r[0] if not _is_pg() else r["message_id"] for r in rows}
+    except Exception:
+        return set()
+    finally:
+        conn.close()
+
+
+def mark_messages_synced(message_ids: list, msg_type: str = "unknown"):
+    """Record a batch of Zoho message IDs as processed."""
+    if not message_ids:
+        return
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    try:
+        for mid in message_ids:
+            if _is_pg():
+                c.execute(
+                    "INSERT INTO zoho_synced_messages (message_id, processed_at, msg_type) "
+                    "VALUES (%s, %s, %s) ON CONFLICT (message_id) DO NOTHING",
+                    (str(mid), now, msg_type)
+                )
+            else:
+                c.execute(
+                    "INSERT OR IGNORE INTO zoho_synced_messages (message_id, processed_at, msg_type) "
+                    "VALUES (?, ?, ?)",
+                    (str(mid), now, msg_type)
+                )
+        conn.commit()
+    except Exception as e:
+        import logging
+        logging.warning("mark_messages_synced failed: %s", e)
+    finally:
+        conn.close()
 
 
 # ── USER SETTINGS ──────────────────────────────────────────────────────────────
