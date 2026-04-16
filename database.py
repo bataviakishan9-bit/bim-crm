@@ -7,18 +7,18 @@ import sqlite3
 from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+_USE_PG = bool(DATABASE_URL)  # set once at import; never changed by fallback logic
 
 # ── Connection helper ──────────────────────────────────────────────────────────
 
 def _is_pg():
-    return bool(os.getenv("DATABASE_URL", DATABASE_URL))
+    return _USE_PG
 
 def get_db():
-    if _is_pg():
+    if _USE_PG:
         import psycopg2
         import psycopg2.extras
-        url = os.getenv("DATABASE_URL", DATABASE_URL)
-        conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
         return conn
     else:
         DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bim_crm.db")
@@ -61,14 +61,7 @@ def _fetchone(row) -> dict | None:
 # ── Schema ─────────────────────────────────────────────────────────────────────
 
 def init_db():
-    try:
-        conn = get_db()
-    except Exception as e:
-        import logging
-        logging.warning("DB connection failed, falling back to SQLite: %s", e)
-        global DATABASE_URL
-        DATABASE_URL = ""
-        conn = get_db()
+    conn = get_db()
     c = conn.cursor()
 
     if _is_pg():
