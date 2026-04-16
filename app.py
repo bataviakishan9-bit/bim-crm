@@ -446,33 +446,58 @@ def complete_task(task_id):
 # ── BULK SEND EMAILS ──────────────────────────────────────────────────────────
 
 @app.route("/leads/send-all", methods=["POST"])
+@login_required
 def send_all_emails():
-    all_leads = db.get_all_leads()
-    sent    = 0
-    skipped = 0
+    all_leads   = db.get_all_leads()
+    user_cfg    = db.get_user_settings(current_user.username)
+
+    sent         = 0
+    skip_done    = 0   # sequence complete (step >= 3)
+    skip_status  = 0   # Invalid / Unsubscribed
+    skip_timing  = 0   # too early
+    skip_failed  = 0   # Zoho send returned False
+    errors       = []
 
     for lead in all_leads:
         step   = lead.get("email_sequence_step", 0)
         status = lead.get("status", "")
 
-        # Skip leads that finished sequence or unsubscribed/invalid
-        if step >= 3 or status in ("Unsubscribed", "Invalid"):
-            skipped += 1
+        # Skip leads that finished sequence
+        if step >= 3:
+            skip_done += 1
+            continue
+
+        # Skip unsubscribed / invalid
+        if status in ("Unsubscribed", "Invalid"):
+            skip_status += 1
             continue
 
         # Check sequence timing
         if step > 0 and lead.get("last_email_sent"):
-            template = lead.get("email_template", "A")
-            days     = SEQUENCE_SCHEDULE.get(template, [0, 4, 9])
+            template     = lead.get("email_template", "A")
+            days         = SEQUENCE_SCHEDULE.get(template, [0, 4, 9])
             last_sent    = datetime.fromisoformat(str(lead["last_email_sent"]))
             days_since   = (datetime.utcnow() - last_sent).days
             required     = days[step] - days[step - 1]
             if days_since < required:
-                skipped += 1
+                skip_timing += 1
                 continue
 
         # Send the email
-        success, subject, body = mail_client.send_sequence_email(lead, step)
+        try:
+            custom_tpl = db.get_email_template(lead.get("email_template", "A"), step)
+            success, subject, body = mail_client.send_sequence_email(
+                lead, step,
+                user_settings=user_cfg or None,
+                custom_template=custom_tpl or None,
+            )
+        except Exception as e:
+            skip_failed += 1
+            err_msg = str(e)
+            if len(errors) < 3:
+                errors.append(f"{lead['email']}: {err_msg[:80]}")
+            continue
+
         if success:
             db.log_email(lead["id"], subject, body, lead.get("email_template", "A"), step)
             db.advance_sequence_step(lead["id"])
@@ -480,9 +505,19 @@ def send_all_emails():
                 db.update_lead_status(lead["id"], "Contacted")
             sent += 1
         else:
-            skipped += 1
+            skip_failed += 1
 
-    flash(f"Bulk send complete: {sent} email(s) sent, {skipped} skipped.", "success")
+    parts = [f"<strong>{sent} sent</strong>"]
+    if skip_done:    parts.append(f"{skip_done} sequence complete")
+    if skip_status:  parts.append(f"{skip_status} invalid/unsub")
+    if skip_timing:  parts.append(f"{skip_timing} too early")
+    if skip_failed:  parts.append(f"<strong style='color:#c62828'>{skip_failed} failed (check Zoho credentials)</strong>")
+
+    msg = "Bulk send: " + " | ".join(parts)
+    if errors:
+        msg += "<br><small style='color:#c62828'>Errors: " + "; ".join(errors) + "</small>"
+
+    flash(msg, "success" if sent > 0 else ("warning" if skip_failed == 0 else "danger"))
     return redirect(url_for("leads"))
 
 
@@ -1142,6 +1177,8 @@ def my_settings():
                 "zoho_dc"           : cfg.get("zoho_dc", "in"),
                 "zoho_account_id"   : cfg.get("zoho_account_id", ""),
                 "is_locked"         : 0,
+                "wa_phone"          : cfg.get("wa_phone", ""),
+                "callmebot_api_key" : cfg.get("callmebot_api_key", ""),
             })
             flash("Settings unlocked. You can now edit.", "info")
             return redirect(url_for("my_settings"))
@@ -1157,12 +1194,65 @@ def my_settings():
             "zoho_dc"           : request.form.get("zoho_dc", "in").strip(),
             "zoho_account_id"   : request.form.get("zoho_account_id", "").strip(),
             "is_locked"         : lock,
+            "wa_phone"          : request.form.get("wa_phone", "").strip(),
+            "callmebot_api_key" : request.form.get("callmebot_api_key", "").strip(),
         }
         db.save_user_settings(username, data)
         flash("Settings saved and locked!" if lock else "Settings saved.", "success")
         return redirect(url_for("my_settings"))
 
     return render_template("my_settings.html", cfg=cfg)
+
+
+@app.route("/test-send-email")
+@login_required
+def test_send_email():
+    """Send a test email to the logged-in user's own address to verify Zoho credentials."""
+    username = current_user.username
+    user_cfg = db.get_user_settings(username) or {}
+    to_email = user_cfg.get("sender_email") or TEAM_EMAILS.get(username)
+    if not to_email:
+        flash("No sender email set. Configure your email in My Email Settings first.", "danger")
+        return redirect(url_for("my_settings"))
+    try:
+        ok = mail_client.send_email(
+            to_address=to_email,
+            subject="BIM CRM — Test Email ✅",
+            html_body=f"""
+            <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:20px auto;padding:24px;
+                        border:1px solid #e0e0e0;border-radius:8px;color:#222;">
+              <div style="background:#1B3A6B;color:#fff;padding:14px 20px;border-radius:6px 6px 0 0;margin:-24px -24px 20px -24px;">
+                <strong>BIM Infra Solutions CRM — Test Email</strong>
+              </div>
+              <p>Hi <strong>{current_user.display}</strong>,</p>
+              <p>Your Zoho Mail credentials are working correctly.
+                 This test was sent from the BIM CRM using your personal credentials.</p>
+              <p style="color:#888;font-size:13px;">Sender: {to_email}</p>
+            </div>""",
+            user_settings=user_cfg or None,
+        )
+        if ok:
+            flash(f"Test email sent to {to_email} — check your inbox!", "success")
+        else:
+            flash(f"Zoho returned failure. Check your credentials in My Email Settings (token may be expired).", "danger")
+    except Exception as e:
+        err = str(e)
+        if "invalid_code" in err or "invalid_token" in err or "refresh" in err.lower():
+            flash("Zoho token expired — run get_token.py to get a new refresh token.", "danger")
+        else:
+            flash(f"Test email error: {err}", "danger")
+    return redirect(url_for("my_settings"))
+
+
+@app.route("/test-whatsapp-bot")
+@login_required
+def test_whatsapp_bot():
+    """Send a test WhatsApp message via CallMeBot to verify setup."""
+    username = current_user.username
+    _send_whatsapp_bot(username,
+        f"✅ BIM CRM WhatsApp Bot is working!\nHi {current_user.display}, your notifications are active.")
+    flash("Test WhatsApp sent! Check your phone. If not received, verify your phone number and API key.", "info")
+    return redirect(url_for("my_settings"))
 
 
 @app.route("/test-connection")
@@ -1375,6 +1465,24 @@ def _send_internal_email(to_username: str, subject: str, html_body: str):
         app.logger.warning("Internal email to %s failed: %s", to_username, e)
 
 
+def _send_whatsapp_bot(username: str, message: str):
+    """Send an automated WhatsApp message via CallMeBot API to a team member."""
+    import urllib.parse, requests as req
+    cfg = db.get_user_settings(username)
+    if not cfg:
+        return
+    phone  = cfg.get("wa_phone", "")
+    apikey = cfg.get("callmebot_api_key", "")
+    if not phone or not apikey:
+        return
+    try:
+        encoded = urllib.parse.quote(message)
+        url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={encoded}&apikey={apikey}"
+        req.get(url, timeout=10)
+    except Exception as e:
+        app.logger.warning("CallMeBot WA to %s failed: %s", username, e)
+
+
 def _task_email_html(task: dict, action: str = "assigned") -> str:
     assigned_by_display = TEAM_DISPLAY.get(task.get("assigned_by", ""), task.get("assigned_by", ""))
     due = str(task.get("due_date", ""))[:10] if task.get("due_date") else "No due date"
@@ -1475,7 +1583,14 @@ def responsibilities():
                     <a href="https://bim-crm.onrender.com/responsibilities" style="background:#1B3A6B;color:#fff;padding:10px 20px;border-radius:5px;text-decoration:none;display:inline-block;margin-top:10px;">View in CRM</a>
                   </div></div>"""
             )
-            flash(f"Responsibility assigned to {display_to} and notified by email.", "success")
+            # WhatsApp bot notification
+            wa_msg = f"📋 New Responsibility: *{data['title']}*\nCategory: {data['category']}\nAssigned by: {display_from}\nhttps://bim-crm.onrender.com/responsibilities"
+            if assigned_to == "all":
+                for uname in TEAM_EMAILS:
+                    _send_whatsapp_bot(uname, wa_msg)
+            else:
+                _send_whatsapp_bot(assigned_to, wa_msg)
+            flash(f"Responsibility assigned to {display_to} and notified by email + WhatsApp.", "success")
         elif action == "status":
             db.update_responsibility_status(int(request.form.get("rid")), request.form.get("status"))
             flash("Status updated.", "success")
@@ -1532,7 +1647,16 @@ def team_tasks():
                         _task_email_html(data, "assigned"),
                     )
             display_to = "Everyone" if assigned_to == "all" else TEAM_DISPLAY.get(assigned_to, assigned_to)
-            flash(f"Task assigned to {display_to} and notified by email.", "success")
+            # WhatsApp bot notification
+            wa_msg = (f"✅ Task Assigned: *{data['title']}*\n"
+                      f"Priority: {data['priority']} | Due: {data['due_date'] or 'No date'}\n"
+                      f"By: {TEAM_DISPLAY.get(current_user.username, current_user.username)}\n"
+                      f"https://bim-crm.onrender.com/team-tasks")
+            wa_targets = list(TEAM_EMAILS.keys()) if assigned_to == "all" else [assigned_to]
+            for uname in wa_targets:
+                if uname != current_user.username:
+                    _send_whatsapp_bot(uname, wa_msg)
+            flash(f"Task assigned to {display_to} and notified by email + WhatsApp.", "success")
 
         elif action == "status":
             db.update_team_task_status(int(request.form.get("tid")), request.form.get("status"))
@@ -1564,12 +1688,16 @@ def reminders():
     fired = []
     for task in due:
         targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
+        wa_msg = (f"⏰ Reminder: *{task['title']}*\n"
+                  f"Due: {str(task.get('due_date',''))[:10] or 'N/A'}\n"
+                  f"https://bim-crm.onrender.com/team-tasks")
         for username in targets:
             _send_internal_email(
                 username,
                 f"Reminder: {task['title']}",
                 _task_email_html(task, "reminder"),
             )
+            _send_whatsapp_bot(username, wa_msg)
         db.mark_reminder_sent(task["id"])
         fired.append(task["title"])
 
@@ -1591,8 +1719,12 @@ def send_reminder_now(tid):
     task  = next((t for t in tasks if t["id"] == tid), None)
     if task:
         targets = list(TEAM_EMAILS.keys()) if task["assigned_to"] == "all" else [task["assigned_to"]]
+        wa_msg = (f"⏰ Reminder: *{task['title']}*\n"
+                  f"Due: {str(task.get('due_date',''))[:10] or 'N/A'}\n"
+                  f"https://bim-crm.onrender.com/team-tasks")
         for username in targets:
             _send_internal_email(username, f"Reminder: {task['title']}", _task_email_html(task, "reminder"))
+            _send_whatsapp_bot(username, wa_msg)
         db.mark_reminder_sent(tid)
         flash(f"Reminder sent for: {task['title']}", "success")
     return redirect(url_for("reminders"))

@@ -227,9 +227,18 @@ def init_db():
                 zoho_dc            TEXT DEFAULT 'in',
                 zoho_account_id    TEXT,
                 is_locked          INTEGER DEFAULT 0,
+                wa_phone           TEXT,
+                callmebot_api_key  TEXT,
                 updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Migrate existing tables — add columns if missing
+        for col, coldef in [("wa_phone", "TEXT"), ("callmebot_api_key", "TEXT")]:
+            try:
+                c.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {coldef}")
+                conn.commit()
+            except Exception:
+                pass
     else:
         c.execute("""
             CREATE TABLE IF NOT EXISTS user_settings (
@@ -242,9 +251,18 @@ def init_db():
                 zoho_dc            TEXT DEFAULT 'in',
                 zoho_account_id    TEXT,
                 is_locked          INTEGER DEFAULT 0,
+                wa_phone           TEXT,
+                callmebot_api_key  TEXT,
                 updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Migrate existing tables — add columns if missing (SQLite doesn't support IF NOT EXISTS on ALTER)
+        for col, coldef in [("wa_phone", "TEXT"), ("callmebot_api_key", "TEXT")]:
+            try:
+                c.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {coldef}")
+                conn.commit()
+            except Exception:
+                pass
 
     # whatsapp_logs table
     if _is_pg():
@@ -383,6 +401,8 @@ def save_user_settings(username: str, data: dict):
                 zoho_dc            = :zoho_dc,
                 zoho_account_id    = :zoho_account_id,
                 is_locked          = :is_locked,
+                wa_phone           = :wa_phone,
+                callmebot_api_key  = :callmebot_api_key,
                 updated_at         = :updated_at
             WHERE username = :username
         """)
@@ -391,11 +411,13 @@ def save_user_settings(username: str, data: dict):
             INSERT INTO user_settings (
                 username, sender_email, sender_name,
                 zoho_client_id, zoho_client_secret, zoho_refresh_token,
-                zoho_dc, zoho_account_id, is_locked, updated_at
+                zoho_dc, zoho_account_id, is_locked,
+                wa_phone, callmebot_api_key, updated_at
             ) VALUES (
                 :username, :sender_email, :sender_name,
                 :zoho_client_id, :zoho_client_secret, :zoho_refresh_token,
-                :zoho_dc, :zoho_account_id, :is_locked, :updated_at
+                :zoho_dc, :zoho_account_id, :is_locked,
+                :wa_phone, :callmebot_api_key, :updated_at
             )
         """)
     data["username"] = username

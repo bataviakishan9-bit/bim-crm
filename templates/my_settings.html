@@ -41,17 +41,31 @@
                 <td>{{ '●●●●●●●●●●●●' if cfg.zoho_refresh_token else '—' }}</td></tr>
             <tr><td style="color:#888;">Client Secret</td>
                 <td>{{ '●●●●●●●●●●●●' if cfg.zoho_client_secret else '—' }}</td></tr>
+            <tr><td style="color:#888;">WhatsApp Number</td>
+                <td>{{ cfg.wa_phone or '—' }}</td></tr>
+            <tr><td style="color:#888;">CallMeBot Key</td>
+                <td>{{ '●●●●●●●●' if cfg.callmebot_api_key else '—' }}</td></tr>
             <tr><td style="color:#888;">Last updated</td>
                 <td style="font-size:11px;color:#aaa;">{{ cfg.updated_at or '—' }}</td></tr>
           </tbody>
         </table>
 
-        <form method="POST" action="/my-settings" class="mt-3">
-          <input type="hidden" name="action" value="unlock">
-          <button type="submit" class="btn btn-outline-warning btn-sm">
-            <i class="bi bi-unlock me-1"></i> Unlock to Edit
-          </button>
-        </form>
+        <div class="d-flex gap-2 mt-3 flex-wrap">
+          <form method="POST" action="/my-settings">
+            <input type="hidden" name="action" value="unlock">
+            <button type="submit" class="btn btn-outline-warning btn-sm">
+              <i class="bi bi-unlock me-1"></i> Unlock to Edit
+            </button>
+          </form>
+          <a href="/test-send-email" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-send me-1"></i> Test Email
+          </a>
+          {% if cfg.wa_phone and cfg.callmebot_api_key %}
+          <a href="/test-whatsapp-bot" class="btn btn-sm" style="background:#25D366;color:#fff;border:none;">
+            <i class="bi bi-whatsapp me-1"></i> Test WhatsApp Bot
+          </a>
+          {% endif %}
+        </div>
       </div>
     </div>
 
@@ -103,9 +117,77 @@
           <div class="mb-2" style="font-size:12px;font-weight:700;color:#1B3A6B;text-transform:uppercase;letter-spacing:0.5px;">
             <i class="bi bi-key me-1"></i> Zoho Mail API Credentials
           </div>
-          <div class="alert alert-info py-2 px-3 mb-3" style="font-size:12px;">
-            Get these from <strong>Zoho API Console → Self Client → Generate Token</strong>.
-            Each team member has their own Zoho Mail account credentials.
+
+          <!-- ZOHO SETUP INSTRUCTIONS -->
+          <div class="mb-3" style="border:1px solid #bbdefb;border-radius:8px;overflow:hidden;">
+            <div style="background:#1B3A6B;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"
+                 onclick="toggleInstructions(this)">
+              <span><i class="bi bi-book me-2"></i>How to get your Zoho credentials (step-by-step)</span>
+              <i class="bi bi-chevron-down" id="instrChevron"></i>
+            </div>
+            <div id="zohoInstructions" style="display:none;padding:16px;font-size:12px;line-height:1.9;background:#f0f7ff;">
+
+              <p style="margin:0 0 10px;color:#1B3A6B;font-weight:700;">You need 3 things: Client ID, Client Secret, and Refresh Token</p>
+
+              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 1 — Open Zoho API Console</div>
+                <ol style="margin:0;padding-left:20px;">
+                  <li>Go to <strong>api-console.zoho.in</strong> (India DC) or <strong>api-console.zoho.com</strong> (US DC)</li>
+                  <li>Log in with <strong>your own Zoho Mail account</strong> (the one you send emails from)</li>
+                  <li>Click <strong>"Self Client"</strong> — if you don't see it, click <strong>"+ Add Client"</strong> and choose Self Client</li>
+                </ol>
+              </div>
+
+              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 2 — Copy Client ID and Client Secret</div>
+                <ol style="margin:0;padding-left:20px;">
+                  <li>Once inside your Self Client app, you will see <strong>Client ID</strong> and <strong>Client Secret</strong> displayed</li>
+                  <li>Copy both and paste them into the fields below</li>
+                </ol>
+              </div>
+
+              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 3 — Generate Refresh Token</div>
+                <ol style="margin:0;padding-left:20px;">
+                  <li>Click the <strong>"Generate Code"</strong> tab inside Self Client</li>
+                  <li>In the <strong>Scope</strong> field, paste exactly:<br>
+                    <code style="background:#e8f0fe;padding:3px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code>
+                  </li>
+                  <li>Set <strong>Time Duration</strong> to <strong>10 minutes</strong></li>
+                  <li>Add a description (e.g. "BIM CRM") — optional</li>
+                  <li>Click <strong>"Create"</strong> — you will see a code appear</li>
+                  <li>Copy that code <strong>immediately</strong> — it expires in 10 minutes</li>
+                </ol>
+              </div>
+
+              <div style="background:#fff;border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
+                <div style="font-weight:700;color:#1B3A6B;margin-bottom:8px;">STEP 4 — Convert code to Refresh Token</div>
+                <ol style="margin:0;padding-left:20px;">
+                  <li>Run <strong>get_token.py</strong> in your BIM_CRM folder:<br>
+                    <code style="background:#e8f0fe;padding:3px 8px;border-radius:4px;font-size:11px;">python get_token.py</code>
+                  </li>
+                  <li>Paste the code when prompted</li>
+                  <li>The script will print your new <strong>Refresh Token</strong> and save it to .env</li>
+                  <li>Copy the Refresh Token and paste it into the field below</li>
+                </ol>
+              </div>
+
+              <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px;">
+                <div style="font-weight:700;color:#856404;margin-bottom:6px;"><i class="bi bi-exclamation-triangle me-1"></i>Also update Render</div>
+                <ol style="margin:0;padding-left:20px;color:#856404;">
+                  <li>Go to <strong>dashboard.render.com</strong> → your bim-crm service → <strong>Environment</strong> tab</li>
+                  <li>Update <strong>ZOHO_REFRESH_TOKEN</strong> with the new token</li>
+                  <li>Also add/update <strong>ZOHO_CLIENT_ID</strong>, <strong>ZOHO_CLIENT_SECRET</strong>, <strong>ZOHO_MAIL_ACCOUNT_ID</strong></li>
+                  <li>Click <strong>Save Changes</strong> — service will redeploy automatically</li>
+                </ol>
+              </div>
+
+              <div style="margin-top:12px;padding:10px 14px;background:#e8f5e9;border-radius:6px;color:#1b5e20;font-size:11px;">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Where is Account ID?</strong> — Log into Zoho Mail → Settings (gear icon) → Developer Space / API → your Account ID is shown there (a long number like 277444000000002002).
+              </div>
+
+            </div>
           </div>
 
           <div class="mb-3">
@@ -162,6 +244,47 @@
 
           <hr class="my-3">
 
+          <!-- WHATSAPP BOT SECTION -->
+          <div class="mb-2" style="font-size:12px;font-weight:700;color:#25D366;text-transform:uppercase;letter-spacing:0.5px;">
+            <i class="bi bi-whatsapp me-1"></i> WhatsApp Bot (CallMeBot — Free)
+          </div>
+          <div class="alert py-2 px-3 mb-3" style="font-size:12px;background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;">
+            <strong>How to set up (one-time, 2 minutes):</strong><br>
+            1. Save the number <strong>+34 644 52 75 40</strong> in your WhatsApp contacts as "CallMeBot".<br>
+            2. Send this message to that number on WhatsApp: <code>I allow callmebot to send me messages</code><br>
+            3. You'll receive your <strong>API key</strong> in reply — paste it below.<br>
+            4. Enter your WhatsApp number below in international format (e.g. <code>+919876543210</code>).
+          </div>
+
+          <div class="row g-2 mb-4">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">
+                <i class="bi bi-whatsapp" style="color:#25D366;"></i> Your WhatsApp Number
+              </label>
+              <input type="text" name="wa_phone" class="form-control form-control-sm font-monospace"
+                     value="{{ cfg.wa_phone or '' }}"
+                     placeholder="+919876543210">
+              <div class="form-text" style="font-size:11px;">International format, no spaces</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:12px;font-weight:600;">
+                CallMeBot API Key
+              </label>
+              <div class="input-group input-group-sm">
+                <input type="password" name="callmebot_api_key" id="waKeyField"
+                       class="form-control font-monospace"
+                       value="{{ cfg.callmebot_api_key or '' }}"
+                       placeholder="••••••••">
+                <button type="button" class="btn btn-outline-secondary" onclick="togglePw('waKeyField', this)">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+              <div class="form-text" style="font-size:11px;">Received from CallMeBot on WhatsApp</div>
+            </div>
+          </div>
+
+          <hr class="my-3">
+
           <!-- LOCK OPTION -->
           <div class="form-check mb-3">
             <input type="checkbox" class="form-check-input" name="lock" id="lockCheck" value="on" checked>
@@ -176,8 +299,18 @@
             <button type="submit" class="btn btn-bim flex-grow-1">
               <i class="bi bi-check-lg me-1"></i> Save Settings
             </button>
+            <a href="/test-send-email" class="btn btn-outline-primary">
+              <i class="bi bi-send me-1"></i> Test Email
+            </a>
             <a href="/" class="btn btn-outline-secondary">Cancel</a>
           </div>
+          {% if cfg.wa_phone and cfg.callmebot_api_key %}
+          <div class="mt-2">
+            <a href="/test-whatsapp-bot" class="btn btn-sm w-100" style="background:#25D366;color:#fff;border:none;">
+              <i class="bi bi-whatsapp me-1"></i> Test WhatsApp Bot Now
+            </a>
+          </div>
+          {% endif %}
 
         </form>
       </div>
@@ -207,6 +340,18 @@ function togglePw(fieldId, btn) {
   } else {
     input.type = 'password';
     icon.className = 'bi bi-eye';
+  }
+}
+
+function toggleInstructions(header) {
+  const body    = document.getElementById('zohoInstructions');
+  const chevron = document.getElementById('instrChevron');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    chevron.className  = 'bi bi-chevron-up';
+  } else {
+    body.style.display = 'none';
+    chevron.className  = 'bi bi-chevron-down';
   }
 }
 </script>
