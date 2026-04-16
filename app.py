@@ -175,7 +175,14 @@ def _update_env(env_path: str, key: str, value: str):
 
 # ──────────────────────────────────────────────────────────────────────────────
 
-db.init_db()
+import traceback as _tb
+try:
+    db.init_db()
+except Exception as _init_err:
+    import sys
+    print(f"[STARTUP ERROR] db.init_db() failed: {_init_err}", file=sys.stderr, flush=True)
+    _tb.print_exc(file=sys.stderr)
+    raise  # still crash — but now Render logs will show the reason
 
 
 # ── AUTH GUARD — protect every route except login ─────────────────────────────
