@@ -239,13 +239,10 @@ def init_db():
                 updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Migrate existing tables — add columns if missing
+        # Migrate existing tables — add columns if missing (IF NOT EXISTS avoids transaction abort)
         for col, coldef in [("wa_phone", "TEXT"), ("callmebot_api_key", "TEXT")]:
-            try:
-                c.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {coldef}")
-                conn.commit()
-            except Exception:
-                pass
+            c.execute(f"ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS {col} {coldef}")
+        conn.commit()
     else:
         c.execute("""
             CREATE TABLE IF NOT EXISTS user_settings (
@@ -269,7 +266,7 @@ def init_db():
                 c.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {coldef}")
                 conn.commit()
             except Exception:
-                pass
+                pass  # SQLite: swallow the error (no rollback needed — SQLite auto-resets)
 
     # whatsapp_logs table
     if _is_pg():
