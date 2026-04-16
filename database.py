@@ -11,13 +11,14 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 # ── Connection helper ──────────────────────────────────────────────────────────
 
 def _is_pg():
-    return bool(DATABASE_URL)
+    return bool(os.getenv("DATABASE_URL", DATABASE_URL))
 
 def get_db():
     if _is_pg():
         import psycopg2
         import psycopg2.extras
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        url = os.getenv("DATABASE_URL", DATABASE_URL)
+        conn = psycopg2.connect(url, cursor_factory=psycopg2.extras.RealDictCursor)
         return conn
     else:
         DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bim_crm.db")
