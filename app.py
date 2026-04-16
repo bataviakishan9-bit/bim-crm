@@ -260,13 +260,17 @@ def lead_detail(lead_id):
             if not can_send_next:
                 next_send_date = (last_sent + timedelta(days=required)).strftime("%b %d, %Y")
 
+    wa_logs = db.get_whatsapp_logs(lead_id)
     return render_template("lead_detail.html",
                            lead=lead,
                            email_logs=email_logs,
                            tasks=tasks,
                            can_send_next=can_send_next,
                            next_send_date=next_send_date,
-                           sequence_step=step)
+                           sequence_step=step,
+                           wa_logs=wa_logs,
+                           wa_templates=WA_TEMPLATES,
+                           twilio_enabled=bool(os.getenv("TWILIO_ACCOUNT_SID")))
 
 
 # ── EDIT LEAD ──────────────────────────────────────────────────────────────────
@@ -1592,6 +1596,99 @@ def send_reminder_now(tid):
         db.mark_reminder_sent(tid)
         flash(f"Reminder sent for: {task['title']}", "success")
     return redirect(url_for("reminders"))
+
+
+# ── WHATSAPP ──────────────────────────────────────────────────────────────────
+
+WA_TEMPLATES = {
+    "intro": {
+        "label": "Introduction",
+        "body": "Hi {first_name}, I'm Kishan from BIM INFRASOLUTIONS LLP. We deliver BIM, Scan-to-BIM and coordination services for construction firms globally. Would you be open to a quick 10-min call this week? 🏗️"
+    },
+    "followup": {
+        "label": "Follow-up",
+        "body": "Hi {first_name}, following up on my earlier message. We've helped firms like {company} cut BIM delivery time by 40% with our offshore team. Happy to share a quick case study — shall I send it over?"
+    },
+    "portfolio": {
+        "label": "Share Portfolio",
+        "body": "Hi {first_name}, here is our BIM portfolio for your reference: https://drive.google.com/file/d/1AJ0_5XUJ5JxoHw3cXVJ7jFVh0LOZIkMk/view — 100+ projects across USA, Germany, Australia. Let me know if any project type is relevant to {company}."
+    },
+    "meeting": {
+        "label": "Book Meeting",
+        "body": "Hi {first_name}, would love to show you what we can do for {company}. You can book a 30-min call here: https://calendly.com/kishanbatavia9/30min — completely free, no obligation."
+    },
+    "custom": {
+        "label": "Custom Message",
+        "body": ""
+    },
+}
+
+
+@app.route("/leads/<int:lead_id>/whatsapp", methods=["POST"])
+@login_required
+def send_whatsapp(lead_id):
+    lead = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
+
+    phone   = request.form.get("phone", "").strip()
+    message = request.form.get("message", "").strip()
+    method  = request.form.get("method", "manual")  # manual | twilio
+
+    if not phone:
+        flash("No phone number provided.", "danger")
+        return redirect(url_for("lead_detail", lead_id=lead_id))
+
+    # Clean phone — remove spaces, dashes, keep +
+    phone_clean = "".join(c for c in phone if c.isdigit() or c == "+")
+    if not phone_clean.startswith("+"):
+        phone_clean = "+" + phone_clean
+
+    if method == "twilio":
+        # Send via Twilio WhatsApp API
+        account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+        auth_token  = os.getenv("TWILIO_AUTH_TOKEN", "")
+        from_wa     = os.getenv("TWILIO_WHATSAPP_FROM", "")  # e.g. whatsapp:+14155238886
+        if not account_sid or not auth_token or not from_wa:
+            flash("Twilio credentials not set. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM to environment.", "danger")
+            return redirect(url_for("lead_detail", lead_id=lead_id))
+        try:
+            import requests as req
+            r = req.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+                auth=(account_sid, auth_token),
+                data={
+                    "From": from_wa,
+                    "To"  : f"whatsapp:{phone_clean}",
+                    "Body": message,
+                },
+                timeout=15,
+            )
+            if r.status_code in (200, 201):
+                db.log_whatsapp(lead_id, phone_clean, message, current_user.username, "twilio", "sent")
+                if lead.get("status") == "New":
+                    db.update_lead_status(lead_id, "Contacted")
+                flash(f"WhatsApp sent to {phone_clean} via Twilio!", "success")
+            else:
+                err = r.json().get("message", r.text[:100])
+                flash(f"Twilio error: {err}", "danger")
+        except Exception as e:
+            flash(f"WhatsApp send failed: {e}", "danger")
+    else:
+        # Manual — just log it (user opened wa.me link themselves)
+        db.log_whatsapp(lead_id, phone_clean, message, current_user.username, "manual", "sent")
+        if lead.get("status") == "New":
+            db.update_lead_status(lead_id, "Contacted")
+        flash("WhatsApp message logged.", "success")
+
+    return redirect(url_for("lead_detail", lead_id=lead_id))
+
+
+@app.route("/api/wa-templates")
+@login_required
+def wa_templates_api():
+    return jsonify(WA_TEMPLATES)
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────

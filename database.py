@@ -246,6 +246,35 @@ def init_db():
             )
         """)
 
+    # whatsapp_logs table
+    if _is_pg():
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_logs (
+                id          SERIAL PRIMARY KEY,
+                lead_id     INTEGER REFERENCES leads(id) ON DELETE CASCADE,
+                phone       TEXT,
+                message     TEXT,
+                sent_by     TEXT,
+                method      TEXT DEFAULT 'manual',
+                status      TEXT DEFAULT 'sent',
+                sent_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+    else:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_logs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id     INTEGER,
+                phone       TEXT,
+                message     TEXT,
+                sent_by     TEXT,
+                method      TEXT DEFAULT 'manual',
+                status      TEXT DEFAULT 'sent',
+                sent_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+            )
+        """)
+
     # email_templates table
     if _is_pg():
         c.execute("""
@@ -957,3 +986,31 @@ def mark_reminder_sent(tid: int):
     c = conn.cursor()
     c.execute(_q("UPDATE team_tasks SET reminder_sent=1 WHERE id=?"), (tid,))
     conn.commit(); conn.close()
+
+# ── WHATSAPP LOGS ──────────────────────────────────────────────────────────────
+
+def log_whatsapp(lead_id: int, phone: str, message: str, sent_by: str, method: str = "manual", status: str = "sent"):
+    conn = get_db()
+    c = conn.cursor()
+    sql = _q("INSERT INTO whatsapp_logs (lead_id, phone, message, sent_by, method, status, sent_at) VALUES (?,?,?,?,?,?,?)" + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, (lead_id, phone, message, sent_by, method, status, datetime.utcnow().isoformat()))
+    conn.commit(); conn.close()
+
+def get_whatsapp_logs(lead_id: int) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM whatsapp_logs WHERE lead_id=? ORDER BY sent_at DESC"), (lead_id,))
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+def get_whatsapp_stats() -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) as n FROM whatsapp_logs")
+    total = (_fetchone(c.fetchone()) or {}).get("n", 0)
+    today_fn = "CURRENT_DATE" if _is_pg() else "date('now')"
+    c.execute(f"SELECT COUNT(*) as n FROM whatsapp_logs WHERE DATE(sent_at)={today_fn}")
+    today = (_fetchone(c.fetchone()) or {}).get("n", 0)
+    conn.close()
+    return {"total": total, "today": today}
