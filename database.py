@@ -60,7 +60,14 @@ def _fetchone(row) -> dict | None:
 # ── Schema ─────────────────────────────────────────────────────────────────────
 
 def init_db():
-    conn = get_db()
+    try:
+        conn = get_db()
+    except Exception as e:
+        import logging
+        logging.warning("DB connection failed, falling back to SQLite: %s", e)
+        global DATABASE_URL
+        DATABASE_URL = ""
+        conn = get_db()
     c = conn.cursor()
 
     if _is_pg():
