@@ -7,63 +7,75 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <style>
-    :root { --blue:#1B3A6B; --gold:#D4A017; }
+    :root { --gold:#D4A017; }
+    *, *::before, *::after { box-sizing:border-box; }
     body {
-      background: linear-gradient(135deg, #1B3A6B 0%, #0d2347 100%);
-      min-height: 100vh;
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Segoe UI', sans-serif;
+      background:#0e0e0e;
+      min-height:100vh;
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Segoe UI',sans-serif;
     }
     .login-card {
-      background: #fff;
-      border-radius: 16px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      background:#161616;
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      padding:40px 36px;
+      width:100%; max-width:400px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.7);
     }
-    .brand-logo {
-      text-align: center;
-      margin-bottom: 28px;
+    .brand-logo { text-align:center; margin-bottom:28px; }
+    .brand-logo .icon {
+      font-size:40px; color:var(--gold); margin-bottom:10px; display:block;
     }
     .brand-logo h4 {
-      color: var(--blue);
-      font-weight: 800;
-      font-size: 18px;
-      margin: 0;
+      color:#fff; font-weight:800; font-size:18px; margin:0;
     }
     .brand-logo p {
-      color: var(--gold);
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin: 4px 0 0;
+      color:var(--gold); font-size:12px; font-weight:600;
+      text-transform:uppercase; letter-spacing:1px; margin:4px 0 0;
     }
-    .form-label { font-size: 13px; font-weight: 600; color: #444; }
-    .form-control { font-size: 14px; border-radius: 8px; }
-    .form-control:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,58,107,0.12); }
+    .form-label { font-size:13px; font-weight:600; color:#ccc; }
+    .form-control {
+      font-size:14px; border-radius:8px;
+      background:#1f1f1f; border:1px solid rgba(255,255,255,0.1);
+      color:#e8e8e8;
+    }
+    .form-control::placeholder { color:#555; }
+    .form-control:focus {
+      background:#272727; border-color:var(--gold);
+      color:#fff; box-shadow:0 0 0 3px rgba(212,160,23,0.18);
+    }
+    .input-group-text {
+      background:#1f1f1f; border:1px solid rgba(255,255,255,0.1);
+      border-right:none; color:#888;
+    }
+    .input-group .form-control { border-left:none; }
+    .toggle-pw {
+      cursor:pointer; background:#1f1f1f;
+      border:1px solid rgba(255,255,255,0.1); border-left:none;
+      border-radius:0 8px 8px 0; color:#888; padding:0 12px;
+    }
+    .toggle-pw:hover { color:#fff; }
     .btn-login {
-      background: var(--blue); color: #fff;
-      border: none; border-radius: 8px;
-      padding: 10px; font-size: 14px; font-weight: 600;
-      width: 100%; margin-top: 6px;
-      transition: background 0.2s;
+      background:var(--gold); color:#000;
+      border:none; border-radius:8px;
+      padding:10px; font-size:14px; font-weight:700;
+      width:100%; margin-top:6px; transition:background .2s;
     }
-    .btn-login:hover { background: #152d54; color: #fff; }
-    .divider { border-color: #e9ecef; margin: 20px 0; }
-    .input-group-text { background: #f8f9fa; border-right: none; }
-    .input-group .form-control { border-left: none; }
-    .toggle-pw { cursor: pointer; background: #f8f9fa; border: 1px solid #dee2e6; border-left: none; border-radius: 0 8px 8px 0; }
+    .btn-login:hover { background:#c49010; color:#000; }
+    .form-check-input { background-color:#1f1f1f; border-color:#444; }
+    .form-check-input:checked { background-color:var(--gold); border-color:var(--gold); }
+    .form-check-label { color:#888; font-size:13px; }
+    .divider { border-color:rgba(255,255,255,0.08); margin:20px 0; }
+    .alert-danger  { background:#2e0d0d; border-color:#5c1a1a; color:#e57373; font-size:13px; }
+    .alert-warning { background:#2e2200; border-color:#5c4400; color:#ffcc55; font-size:13px; }
+    .alert-success { background:#0d2e1a; border-color:#1a5c30; color:#5ddb8a; font-size:13px; }
   </style>
 </head>
 <body>
-
 <div class="login-card">
   <div class="brand-logo">
-    <div style="font-size:36px;color:#1B3A6B;margin-bottom:8px;">
-      <i class="bi bi-building-check"></i>
-    </div>
+    <i class="bi bi-building-check icon"></i>
     <h4>BIM Infra Solutions</h4>
     <p>CRM Portal</p>
   </div>
@@ -71,7 +83,7 @@
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for cat, msg in messages %}
-        <div class="alert alert-{{ cat }} py-2 mb-3" style="font-size:13px;">{{ msg }}</div>
+        <div class="alert alert-{{ cat }} py-2 mb-3">{{ msg }}</div>
       {% endfor %}
     {% endif %}
   {% endwith %}
@@ -80,53 +92,44 @@
     <div class="mb-3">
       <label class="form-label">Username</label>
       <div class="input-group">
-        <span class="input-group-text"><i class="bi bi-person" style="color:#1B3A6B;"></i></span>
+        <span class="input-group-text"><i class="bi bi-person" style="color:var(--gold);"></i></span>
         <input type="text" name="username" class="form-control" placeholder="Enter username"
                autocomplete="username" required autofocus>
       </div>
     </div>
-
     <div class="mb-3">
       <label class="form-label">Password</label>
       <div class="input-group">
-        <span class="input-group-text"><i class="bi bi-lock" style="color:#1B3A6B;"></i></span>
+        <span class="input-group-text"><i class="bi bi-lock" style="color:var(--gold);"></i></span>
         <input type="password" name="password" id="pw" class="form-control"
                placeholder="Enter password" autocomplete="current-password" required>
-        <button type="button" class="toggle-pw px-3" onclick="togglePw()">
+        <button type="button" class="toggle-pw" onclick="togglePw()">
           <i class="bi bi-eye" id="eye-icon"></i>
         </button>
       </div>
     </div>
-
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div class="form-check">
         <input class="form-check-input" type="checkbox" name="remember" id="remember">
-        <label class="form-check-label" for="remember" style="font-size:13px;">Remember me</label>
+        <label class="form-check-label" for="remember">Remember me</label>
       </div>
     </div>
-
     <button type="submit" class="btn-login">
       <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
     </button>
   </form>
 
   <hr class="divider">
-  <p class="text-center text-muted mb-0" style="font-size:11px;">
+  <p class="text-center mb-0" style="font-size:11px;color:#555;">
     BIM Infra Solutions LLP &nbsp;·&nbsp; Internal CRM
   </p>
 </div>
-
 <script>
 function togglePw() {
   const pw = document.getElementById('pw');
   const icon = document.getElementById('eye-icon');
-  if (pw.type === 'password') {
-    pw.type = 'text';
-    icon.className = 'bi bi-eye-slash';
-  } else {
-    pw.type = 'password';
-    icon.className = 'bi bi-eye';
-  }
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+  icon.className = pw.type === 'text' ? 'bi bi-eye-slash' : 'bi bi-eye';
 }
 </script>
 </body>

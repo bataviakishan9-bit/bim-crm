@@ -1753,6 +1753,40 @@ def send_reminder_now(tid):
     return redirect(url_for("reminders"))
 
 
+# ── DB BACKUP ─────────────────────────────────────────────────────────────────
+
+@app.route("/admin/backup-db")
+@login_required
+def backup_db():
+    """Download full DB as JSON (Kishan only)."""
+    from flask import Response
+    import json as _json
+    if current_user.username != "kishan":
+        return "Not authorized", 403
+    tables = ["leads","email_logs","replies","tasks","team_tasks","responsibilities",
+              "user_settings","expenses","income_entries","projects","invoices","invoice_items"]
+    conn = db.get_db()
+    c    = conn.cursor()
+    backup = {}
+    for t in tables:
+        try:
+            c.execute(f"SELECT * FROM {t}")
+            backup[t] = db._fetchall(c.fetchall())
+        except Exception:
+            backup[t] = []
+    conn.close()
+    def _default(o):
+        from datetime import date, datetime
+        if isinstance(o, (date, datetime)):
+            return str(o)
+        return str(o)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M")
+    data = _json.dumps(backup, default=_default, indent=2, ensure_ascii=False)
+    return Response(data,
+                    mimetype="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=bim_crm_backup_{ts}.json"})
+
+
 # ── ONE-TIME MIGRATION ────────────────────────────────────────────────────────
 
 @app.route("/admin/run-migration")
@@ -2050,6 +2084,126 @@ def expenses():
                            now=datetime.now())
 
 
+@app.route("/expenses/export-excel")
+@login_required
+def expenses_export_excel():
+    """Download project expenses as monthly Excel sheet."""
+    import io
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from flask import Response
+
+    filter_project = request.args.get("project", "") or None
+    filter_month   = request.args.get("month", "") or None
+
+    rows = db.get_expenses(
+        partner=None,
+        month_year=filter_month or None,
+        expense_type="Project",
+        project=filter_project or None,
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    title_parts = ["Project Expenses"]
+    if filter_project:
+        title_parts.append(filter_project)
+    if filter_month:
+        title_parts.append(filter_month)
+    ws.title = "Expenses"
+
+    # ── Header Row ──
+    gold_fill   = PatternFill("solid", fgColor="D4A017")
+    dark_fill   = PatternFill("solid", fgColor="1A1A1A")
+    alt_fill    = PatternFill("solid", fgColor="F5F5F5")
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    # Title
+    ws.merge_cells("A1:H1")
+    title_cell = ws["A1"]
+    title_cell.value = " | ".join(title_parts)
+    title_cell.font  = Font(name="Calibri", bold=True, size=14, color="FFFFFF")
+    title_cell.fill  = dark_fill
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    headers = ["#", "Date", "Partner", "Project", "Category", "Description", "Amount (₹)", "Added By"]
+    col_widths = [5, 14, 16, 22, 20, 36, 16, 14]
+    for i, (h, w) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=2, column=i, value=h)
+        cell.font  = Font(name="Calibri", bold=True, size=11, color="000000")
+        cell.fill  = gold_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+    ws.row_dimensions[2].height = 20
+
+    # Data rows
+    total = 0.0
+    for idx, e in enumerate(rows, start=1):
+        r = idx + 2
+        fill = alt_fill if idx % 2 == 0 else PatternFill()
+        vals = [
+            idx,
+            str(e.get("date", ""))[:10],
+            e.get("partner", ""),
+            e.get("project_name", "") or "",
+            e.get("category", ""),
+            e.get("description", "") or "",
+            float(e.get("amount", 0) or 0),
+            e.get("created_by", ""),
+        ]
+        for ci, v in enumerate(vals, start=1):
+            cell = ws.cell(row=r, column=ci, value=v)
+            cell.font   = Font(name="Calibri", size=10)
+            cell.border = thin_border
+            cell.fill   = fill
+            if ci == 7:
+                cell.number_format = '#,##0.00'
+                cell.alignment = Alignment(horizontal="right")
+            elif ci == 1:
+                cell.alignment = Alignment(horizontal="center")
+        total += float(e.get("amount", 0) or 0)
+
+    # Total row
+    total_row = len(rows) + 3
+    ws.merge_cells(f"A{total_row}:F{total_row}")
+    tc = ws[f"A{total_row}"]
+    tc.value = "TOTAL"
+    tc.font  = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
+    tc.fill  = dark_fill
+    tc.alignment = Alignment(horizontal="right")
+    tc.border = thin_border
+    amt_cell = ws.cell(row=total_row, column=7, value=total)
+    amt_cell.font   = Font(name="Calibri", bold=True, size=11, color="FFFFFF")
+    amt_cell.fill   = dark_fill
+    amt_cell.number_format = '#,##0.00'
+    amt_cell.alignment = Alignment(horizontal="right")
+    amt_cell.border = thin_border
+    ws.cell(row=total_row, column=8).fill   = dark_fill
+    ws.cell(row=total_row, column=8).border = thin_border
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    fname_parts = ["project_expenses"]
+    if filter_project:
+        fname_parts.append(filter_project.replace(" ", "_"))
+    if filter_month:
+        fname_parts.append(filter_month.replace(" ", "_"))
+    filename = "_".join(fname_parts) + ".xlsx"
+
+    return Response(
+        buf.getvalue(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 @app.route("/income", methods=["GET", "POST"])
 @login_required
 def income():
@@ -2291,6 +2445,103 @@ def invoice_download_pdf(invoice_id):
     fname = f"Invoice_{invoice['invoice_no'].replace('/', '_')}.pdf"
     return Response(data, mimetype="application/pdf",
                     headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@app.route("/invoices/<int:invoice_id>/send-email", methods=["POST"])
+@login_required
+def invoice_send_email(invoice_id):
+    """Send invoice to client and/or accountant by email."""
+    from zoho_mail import mail_client
+    invoice = db.get_invoice(invoice_id)
+    items   = db.get_invoice_items(invoice_id)
+    if not invoice:
+        flash("Invoice not found.", "danger")
+        return redirect(url_for("invoices"))
+
+    client_email    = request.form.get("client_email", "").strip()
+    accountant_email = request.form.get("accountant_email", "").strip()
+    user_cfg        = db.get_user_settings(current_user.username)
+
+    # Build HTML body
+    items_rows = "".join(
+        f"<tr><td style='padding:8px;border:1px solid #333;'>{it['description']}"
+        f"{'<br><small style=\"color:#aaa\">(SAC: ' + it['sac_code'] + ')</small>' if it.get('sac_code') else ''}</td>"
+        f"<td style='padding:8px;border:1px solid #333;text-align:center;'>{it['unit']}</td>"
+        f"<td style='padding:8px;border:1px solid #333;text-align:right;'>₹{float(it['amount'] or 0):,.0f}</td></tr>"
+        for it in items
+    )
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;background:#0e0e0e;color:#e8e8e8;padding:24px;border-radius:8px;">
+      <h2 style="color:#D4A017;text-align:center;margin:0 0 4px;">BIM INFRASOLUTIONS LLP</h2>
+      <p style="text-align:center;color:#888;font-size:12px;margin:0 0 20px;">GSTIN: 24AAUFB9689E1ZS | LLPIN: AAP-1096</p>
+      <hr style="border-color:#333;">
+      <h3 style="text-align:center;color:#fff;">Tax Invoice — {invoice['invoice_no']}</h3>
+      <p style="color:#aaa;font-size:13px;"><strong>Date:</strong> {invoice['date']}</p>
+      <p style="color:#e8e8e8;font-size:13px;"><strong>To:</strong> {invoice['client_name']}<br>
+      {'<small>' + invoice.get('client_address','') + '</small><br>' if invoice.get('client_address') else ''}
+      {'GSTIN: ' + invoice['client_gstin'] if invoice.get('client_gstin') else ''}</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
+        <thead>
+          <tr style="background:#1f1f1f;">
+            <th style="padding:8px;border:1px solid #333;text-align:left;">Particulars</th>
+            <th style="padding:8px;border:1px solid #333;text-align:center;">Unit</th>
+            <th style="padding:8px;border:1px solid #333;text-align:right;">Amount (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items_rows}
+          <tr><td style="padding:8px;border:1px solid #333;">GST {int(invoice.get('gst_rate',18))}%</td>
+              <td style="border:1px solid #333;"></td>
+              <td style="padding:8px;border:1px solid #333;text-align:right;">₹{float(invoice.get('gst_amount',0)):,.0f}</td></tr>
+          <tr style="background:#1a1a1a;">
+            <td colspan="2" style="padding:8px;border:1px solid #333;font-weight:bold;color:#D4A017;">Total Bill</td>
+            <td style="padding:8px;border:1px solid #333;text-align:right;font-weight:bold;color:#D4A017;font-size:15px;">
+              ₹{float(invoice.get('total',0)):,.0f} INR</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:#888;"><strong>Payment within 14 days.</strong> HDFC Bank | IFSC: HDFC0003905 | A/C: 50200041261501</p>
+      <hr style="border-color:#333;">
+      <p style="font-size:11px;color:#555;text-align:center;">
+        302, Shahibaug Greens, Ahmedabad · info@biminfrasolutions.in · www.biminfrasolutions.in
+      </p>
+    </div>"""
+
+    sent_to = []
+    failed  = []
+
+    if client_email:
+        ok = mail_client.send_email(
+            to_address=client_email,
+            subject=f"Invoice {invoice['invoice_no']} from BIM Infrasolutions LLP",
+            html_body=html,
+            user_settings=user_cfg,
+        )
+        if ok: sent_to.append(f"client ({client_email})")
+        else:  failed.append(client_email)
+
+    if accountant_email:
+        acct_html = html + f"""
+        <div style="background:#1f1f1f;border-radius:6px;padding:12px;margin-top:16px;font-size:12px;color:#aaa;">
+          <strong style="color:#D4A017;">Accountant Note:</strong><br>
+          Invoice <strong>{invoice['invoice_no']}</strong> generated by {current_user.display} on {invoice['date']}.
+          Please record payment once received.
+        </div>"""
+        ok = mail_client.send_email(
+            to_address=accountant_email,
+            subject=f"[Internal] Invoice {invoice['invoice_no']} generated — {invoice['client_name']}",
+            html_body=acct_html,
+            user_settings=user_cfg,
+        )
+        if ok: sent_to.append(f"accountant ({accountant_email})")
+        else:  failed.append(accountant_email)
+
+    if sent_to:
+        db.update_invoice_status(invoice_id, "Sent")
+        flash(f"Invoice sent to: {', '.join(sent_to)}. Status updated to Sent.", "success")
+    if failed:
+        flash(f"Failed to send to: {', '.join(failed)}", "danger")
+    return redirect(url_for("invoice_view", invoice_id=invoice_id))
 
 
 def _save_invoice(invoice_id):

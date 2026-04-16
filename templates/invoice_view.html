@@ -6,25 +6,18 @@
     <small class="text-muted">{{ invoice.client_name }} — {{ invoice.date }}</small>
   </div>
   <div class="d-flex gap-2 flex-wrap">
-    <a href="/invoices/{{ invoice.id }}/edit" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-pencil me-1"></i> Edit
-    </a>
-    <a href="/invoices/{{ invoice.id }}/download/docx" class="btn btn-outline-dark btn-sm">
-      <i class="bi bi-file-word me-1"></i> Word
-    </a>
-    <a href="/invoices/{{ invoice.id }}/download/pdf" class="btn btn-outline-danger btn-sm">
-      <i class="bi bi-file-pdf me-1"></i> PDF
-    </a>
-    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-printer me-1"></i> Print
+    <a href="/invoices/{{ invoice.id }}/edit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+    <a href="/invoices/{{ invoice.id }}/download/docx" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-word me-1"></i>Word</a>
+    <a href="/invoices/{{ invoice.id }}/download/pdf" class="btn btn-outline-danger btn-sm"><i class="bi bi-file-pdf me-1"></i>PDF</a>
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm"><i class="bi bi-printer me-1"></i>Print</button>
+    <button class="btn btn-bim btn-sm" data-bs-toggle="modal" data-bs-target="#sendEmailModal">
+      <i class="bi bi-envelope me-1"></i>Send Email
     </button>
-    <a href="/invoices" class="btn btn-outline-secondary btn-sm">
-      <i class="bi bi-arrow-left me-1"></i> Back
-    </a>
+    <a href="/invoices" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
   </div>
 </div>
 
-<!-- Status update -->
+<!-- Status + delete -->
 <div class="d-flex align-items-center gap-3 mb-3">
   {% set sc = {'Draft':'secondary','Sent':'primary','Paid':'success','Overdue':'danger'} %}
   <span class="badge bg-{{ sc.get(invoice.status,'secondary') }} fs-6">{{ invoice.status }}</span>
@@ -36,118 +29,120 @@
     </select>
     <button class="btn btn-sm btn-bim">Update</button>
   </form>
-  <form method="post" action="/invoices/{{ invoice.id }}/delete"
-        onsubmit="return confirm('Delete this invoice?')">
-    <button class="btn btn-sm btn-outline-danger">
-      <i class="bi bi-trash me-1"></i> Delete
-    </button>
+  <form method="post" action="/invoices/{{ invoice.id }}/delete" onsubmit="return confirm('Delete this invoice?')">
+    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
   </form>
 </div>
 
-<!-- Invoice preview -->
-<div class="card" id="invoicePrint" style="max-width:780px;">
-  <div class="card-body p-4">
+<!-- Invoice Preview — styled like BIM letterhead -->
+<div class="card" id="invoicePrint" style="max-width:800px;font-family:'Times New Roman',serif;">
+  <div class="card-body p-5">
 
-    <!-- Header -->
-    <div class="text-center mb-2">
-      <h2 style="color:#1B3A6B;font-weight:800;letter-spacing:1px;">BIM INFRASOLUTIONS LLP</h2>
+    <!-- Company Header -->
+    <div class="text-center mb-1">
+      <h1 style="font-size:28px;font-weight:900;color:var(--gold);letter-spacing:2px;margin:0;">
+        BIM INFRASOLUTIONS LLP
+      </h1>
     </div>
-    <div class="d-flex justify-content-between mb-1" style="font-size:12px;">
+    <div class="d-flex justify-content-between" style="font-size:11px;color:var(--muted);">
       <span>GSTIN: {{ invoice.company_gstin or '24AAUFB9689E1ZS' }}</span>
       <span>LLPIN: {{ invoice.llpin or 'AAP-1096' }}</span>
     </div>
     {% if invoice.lut_number %}
-    <div style="font-size:12px;">LUT Number: {{ invoice.lut_number }}</div>
+    <div style="font-size:11px;color:var(--muted);">LUT Number: {{ invoice.lut_number }}</div>
     {% endif %}
-    <hr style="border-top:2px solid #1B3A6B;">
+    <hr style="border:2px solid var(--gold);margin:10px 0;">
 
-    <div class="text-center mb-2">
-      <strong style="font-size:16px;text-decoration:underline;">Tax Invoice</strong>
-    </div>
-    <div class="d-flex justify-content-between mb-3">
+    <!-- Title -->
+    <h3 class="text-center" style="text-decoration:underline;font-size:16px;font-weight:700;margin:12px 0;">Tax Invoice</h3>
+
+    <!-- Date & Invoice No -->
+    <div class="d-flex justify-content-between mb-3" style="font-size:13px;">
       <div></div>
-      <div style="font-size:13px;">
-        <strong>Date:</strong> {{ invoice.date }}<br>
-        <strong>Invoice no:</strong> {{ invoice.invoice_no }}
+      <div>
+        <div><strong>Date:</strong> {{ invoice.date }}</div>
+        <div><strong>Invoice no:</strong> {{ invoice.invoice_no }}</div>
       </div>
     </div>
 
     <!-- To -->
     <div class="mb-3" style="font-size:13px;">
       <strong>To,</strong><br>
-      <strong>{{ invoice.client_name }}</strong><br>
-      {% if invoice.client_address %}{{ invoice.client_address }}<br>{% endif %}
-      {% if invoice.client_gstin %}<strong>GSTIN: {{ invoice.client_gstin }}</strong>{% endif %}
+      <strong style="font-size:14px;">{{ invoice.client_name }}</strong><br>
+      {% if invoice.client_address %}
+        <span style="color:var(--muted);">{{ invoice.client_address }}</span><br>
+      {% endif %}
+      {% if invoice.client_gstin %}
+        <strong>GSTIN: {{ invoice.client_gstin }}</strong>
+      {% endif %}
     </div>
 
-    <!-- Items table -->
-    <table class="table table-bordered mb-0" style="font-size:13px;">
-      <thead style="background:#1B3A6B;color:#fff;">
-        <tr>
-          <th>Particulars</th>
-          <th style="width:80px;text-align:center;">Unit</th>
-          <th style="width:130px;text-align:right;">Amount (INR)</th>
+    <!-- Items Table -->
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:0;">
+      <thead>
+        <tr style="background:var(--gold);color:#000;">
+          <th style="padding:8px 10px;border:1px solid #555;text-align:left;font-weight:700;">Particulars</th>
+          <th style="padding:8px;border:1px solid #555;text-align:center;width:80px;font-weight:700;">Unit</th>
+          <th style="padding:8px;border:1px solid #555;text-align:right;width:140px;font-weight:700;">Amount (INR)</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
-          <td>
-            {{ item.description }}
-            {% if item.sac_code %} (SAC: {{ item.sac_code }}){% endif %}
+          <td style="padding:8px 10px;border:1px solid var(--border);">
+            {{ item.description }}{% if item.sac_code %} <small style="color:var(--muted);">(SAC: {{ item.sac_code }})</small>{% endif %}
           </td>
-          <td style="text-align:center;">{{ item.unit }}</td>
-          <td style="text-align:right;">{{ '{:,.0f}'.format(item.amount or 0) }}</td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:center;">{{ item.unit }}</td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:right;">{{ '{:,.0f}'.format(item.amount or 0) }}</td>
         </tr>
         {% endfor %}
-        <!-- GST row -->
         <tr>
-          <td>GST {{ invoice.gst_rate|int }}%</td>
-          <td></td>
-          <td style="text-align:right;">{{ '{:,.0f}'.format(invoice.gst_amount or 0) }}</td>
+          <td style="padding:8px 10px;border:1px solid var(--border);">GST {{ invoice.gst_rate|int }}%</td>
+          <td style="padding:8px;border:1px solid var(--border);"></td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:right;">{{ '{:,.0f}'.format(invoice.gst_amount or 0) }}</td>
         </tr>
-        <!-- Total row -->
-        <tr style="background:#EBF5FB;">
-          <td><strong>Total Bill</strong></td>
-          <td style="text-align:center;">—</td>
-          <td style="text-align:right;"><strong>{{ '{:,.0f}'.format(invoice.total or 0) }} INR</strong></td>
+        <tr style="background:var(--surface2);">
+          <td style="padding:8px 10px;border:1px solid var(--border);font-weight:700;">Total Bill</td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:center;font-weight:700;">—</td>
+          <td style="padding:8px;border:1px solid var(--border);text-align:right;font-weight:700;font-size:15px;color:var(--gold);">
+            {{ '{:,.0f}'.format(invoice.total or 0) }} INR
+          </td>
         </tr>
-        <!-- Words row -->
-        <tr style="background:#EBF5FB;">
-          <td colspan="3" style="text-align:center;">
-            <em><strong>Total amount in words:</strong>
-            {% set t = invoice.total|float %}
-            {% set rupees = t|int %}
-            {{ rupees }} INR only
-            </em>
+        <tr style="background:var(--surface2);">
+          <td colspan="3" style="padding:8px;border:1px solid var(--border);text-align:center;font-style:italic;font-size:13px;">
+            <strong>Total amount in words:</strong> {{ invoice.total|int }} INR only
           </td>
         </tr>
       </tbody>
     </table>
 
     {% if invoice.notes %}
-    <p class="mt-3 mb-1" style="font-size:12px;"><strong>Notes:</strong> {{ invoice.notes }}</p>
+    <p class="mt-3 mb-1" style="font-size:12px;color:var(--muted);"><strong>Notes:</strong> {{ invoice.notes }}</p>
     {% endif %}
 
     <!-- Signature -->
-    <div class="text-end mt-4 mb-2">
-      <strong>Mr. Kishan Batavia</strong><br><br>
-      <strong>Authorized Signatory</strong>
+    <div class="text-end mt-5 mb-3">
+      <strong style="font-size:13px;">Mr. Kishan Batavia</strong><br><br><br>
+      <strong style="font-size:13px;">Authorized Signatory</strong>
     </div>
 
-    <hr>
+    <hr style="border-color:var(--border);">
 
     <!-- Terms -->
-    <p style="font-size:12px;"><strong>Terms and Conditions:</strong></p>
-    <ol style="font-size:12px;">
+    <p style="font-size:12px;font-weight:700;margin-bottom:4px;">Terms and Conditions:</p>
+    <ol style="font-size:12px;color:var(--muted);margin-bottom:12px;padding-left:20px;">
       <li>Subject to Ahmedabad Jurisdiction.</li>
       <li>The payment shall be released within two weeks from the date of invoice.</li>
       <li>In case of electronic fund transfer banking information is as under:</li>
     </ol>
 
-    <!-- Bank details -->
-    <table class="table table-bordered mb-0" style="font-size:12px;">
-      <thead><tr><th colspan="2" style="text-align:center;background:#f8f9fa;">ACCOUNT DETAILS</th></tr></thead>
+    <!-- Bank Details -->
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+      <thead>
+        <tr style="background:var(--surface2);">
+          <th colspan="2" style="padding:6px 10px;border:1px solid var(--border);text-align:center;font-weight:700;">ACCOUNT DETAILS</th>
+        </tr>
+      </thead>
       <tbody>
         {% for label, val in [
           ('Beneficiary account name','BIM INFRASOLUTIONS LLP'),
@@ -161,29 +156,65 @@
           ('GST no','24AAUFB9689E1ZS'),
         ] %}
         <tr>
-          <td style="width:35%;font-weight:600;">{{ label }}</td>
-          <td>{{ val }}</td>
+          <td style="padding:5px 10px;border:1px solid var(--border);font-weight:600;width:35%;">{{ label }}</td>
+          <td style="padding:5px 10px;border:1px solid var(--border);color:var(--muted);">{{ val }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
 
-    <hr>
-    <p class="text-center text-muted" style="font-size:11px;">
+    <hr style="border-color:var(--border);">
+    <p class="text-center text-muted mb-0" style="font-size:11px;">
       302, Shahibaug Greens, Shahibaug, Ahmedabad, Gujarat, India.
       Phone: +91 8511184053, +64 225053122 |
-      E-Mail: info@biminfrasolutions.in |
-      Website: www.biminfrasolutions.in
+      info@biminfrasolutions.in | www.biminfrasolutions.in
     </p>
+  </div>
+</div>
+
+<!-- Send Email Modal -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/invoices/{{ invoice.id }}/send-email">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-envelope me-2"></i>Send Invoice by Email</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted" style="font-size:13px;">
+            Invoice <strong>{{ invoice.invoice_no }}</strong> — {{ invoice.client_name }}<br>
+            Amount: <strong style="color:var(--gold);">₹{{ '{:,.0f}'.format(invoice.total or 0) }}</strong>
+          </p>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Client Email</label>
+            <input type="email" class="form-control" name="client_email"
+              placeholder="client@company.com" value="{{ invoice.client_email or '' }}">
+            <small class="text-muted">Leave blank to skip</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Accountant Email (CC)</label>
+            <input type="email" class="form-control" name="accountant_email"
+              placeholder="accountant@biminfrasolutions.in">
+            <small class="text-muted">Gets internal copy with notes</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim"><i class="bi bi-send me-1"></i>Send Now</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
 <style>
 @media print {
-  body * { visibility: hidden; }
-  #invoicePrint, #invoicePrint * { visibility: visible; }
-  #invoicePrint { position: absolute; left: 0; top: 0; width: 100%; }
-  .page-header, .d-flex.gap-2 { display: none !important; }
+  body > *:not(#invoicePrint) { display: none !important; }
+  #invoicePrint { position: fixed; top:0; left:0; width:100%; box-shadow:none !important; }
+  .modal, .page-header, .d-flex.gap-2 { display: none !important; }
+  body { background: white !important; color: black !important; }
+  #invoicePrint, #invoicePrint * { color: black !important; background: white !important; border-color: #999 !important; }
 }
 </style>
 {% endblock %}
