@@ -473,6 +473,16 @@ def init_db():
         )
     """)
 
+    # app_config: generic key-value store for runtime settings (e.g. Zoho refresh token)
+    # Using TEXT PRIMARY KEY so it works on both PostgreSQL and SQLite without SERIAL
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS app_config (
+            key        TEXT PRIMARY KEY,
+            value      TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -1555,3 +1565,41 @@ def get_invoice_summary() -> dict:
             summary[s] = {"count": r["cnt"], "total": float(r["total"])}
     summary["grand_total"] = sum(v["total"] for v in summary.values())
     return summary
+
+
+# ── APP CONFIG (key-value store) ───────────────────────────────────────────────
+
+def get_config(key: str, default: str = "") -> str:
+    """Read a runtime config value from app_config table."""
+    try:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute(_q("SELECT value FROM app_config WHERE key=?"), (key,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            v = row["value"] if _is_pg() else row[0]
+            return v if v is not None else default
+    except Exception:
+        pass
+    return default
+
+
+def set_config(key: str, value: str):
+    """Upsert a runtime config value into app_config table."""
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    if _is_pg():
+        c.execute(
+            "INSERT INTO app_config (key, value, updated_at) VALUES (%s, %s, %s) "
+            "ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at",
+            (key, value, now),
+        )
+    else:
+        c.execute(
+            "INSERT OR REPLACE INTO app_config (key, value, updated_at) VALUES (?, ?, ?)",
+            (key, value, now),
+        )
+    conn.commit()
+    conn.close()

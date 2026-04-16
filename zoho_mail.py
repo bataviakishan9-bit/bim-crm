@@ -40,7 +40,14 @@ class ZohoMailClient:
         return self._access_token
 
     def _refresh_token(self):
-        # Always re-read from .env so token updates take effect without restart
+        # DB takes priority over env var — allows in-app token updates to survive redeploys
+        try:
+            import database as _db
+            db_token = _db.get_config("ZOHO_REFRESH_TOKEN")
+            if db_token:
+                os.environ["ZOHO_REFRESH_TOKEN"] = db_token
+        except Exception:
+            pass
         load_dotenv(override=True)
         client_id     = os.getenv("ZOHO_CLIENT_ID")
         client_secret = os.getenv("ZOHO_CLIENT_SECRET")

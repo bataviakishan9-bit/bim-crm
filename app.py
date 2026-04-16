@@ -2691,9 +2691,11 @@ def admin_update_zoho_token():
                 data = resp.json()
                 if "refresh_token" in data:
                     new_token = data["refresh_token"]
-                    # Update in-memory immediately — current process picks it up
+                    # 1. Save to database — persists across all redeploys
+                    db.set_config("ZOHO_REFRESH_TOKEN", new_token)
+                    # 2. Update in-memory immediately — current process picks it up now
                     os.environ["ZOHO_REFRESH_TOKEN"] = new_token
-                    # Also try to update Render env var if API key is configured
+                    # 3. Also try to update Render env var if API key is configured
                     render_key = os.getenv("RENDER_API_KEY", "")
                     render_svc = os.getenv("RENDER_SERVICE_ID", "srv-d7e9jc4vikkc73ek6v50")
                     if render_key:
