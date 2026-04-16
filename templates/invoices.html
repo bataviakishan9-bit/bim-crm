@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h4><i class="bi bi-file-earmark-text me-2"></i>Invoices</h4>
+    <small class="text-muted">Billing &amp; payment tracking</small>
+  </div>
+  <a href="/invoices/new" class="btn btn-bim">
+    <i class="bi bi-plus-lg me-1"></i> New Invoice
+  </a>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-4">
+  {% for label, color in [('Draft','secondary'),('Sent','primary'),('Paid','success'),('Overdue','danger')] %}
+  {% set s = summary[label] %}
+  <div class="col-md-3 col-6">
+    <div class="stat-card" style="border-left:4px solid var(--bs-{{ color }});">
+      <div class="number" style="color:var(--bs-{{ color }});">{{ s.count }}</div>
+      <div class="label">{{ label }}</div>
+      <div style="font-size:11px;color:#666;">&#8377;{{ '{:,.0f}'.format(s.total) }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <form class="row g-2 align-items-end" method="get">
+      <div class="col-md-3">
+        <label class="form-label mb-1" style="font-size:12px;">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for s in ['Draft','Sent','Paid','Overdue'] %}
+          <option {{ 'selected' if filter_status==s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label mb-1" style="font-size:12px;">Project</label>
+        <select name="project_id" class="form-select form-select-sm">
+          <option value="">All Projects</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}" {{ 'selected' if filter_project|string==p.id|string }}>
+            {{ p.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-bim btn-sm w-100">Filter</button>
+      </div>
+      <div class="col-md-2">
+        <a href="/invoices" class="btn btn-outline-secondary btn-sm w-100">Clear</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Invoices Table -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead class="table-dark">
+        <tr>
+          <th class="ps-3">Invoice No</th>
+          <th>Date</th>
+          <th>Client</th>
+          <th>Project</th>
+          <th class="text-end">Amount (INR)</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td class="ps-3">
+            <a href="/invoices/{{ inv.id }}" class="fw-semibold text-decoration-none">
+              {{ inv.invoice_no }}
+            </a>
+          </td>
+          <td>{{ inv.date }}</td>
+          <td>{{ inv.client_name }}</td>
+          <td>{{ inv.project_name or '—' }}</td>
+          <td class="text-end fw-semibold">&#8377;{{ '{:,.0f}'.format(inv.total or 0) }}</td>
+          <td>
+            {% set sc = {'Draft':'secondary','Sent':'primary','Paid':'success','Overdue':'danger'} %}
+            <span class="badge bg-{{ sc.get(inv.status,'secondary') }}">{{ inv.status }}</span>
+          </td>
+          <td>
+            <a href="/invoices/{{ inv.id }}" class="btn btn-sm btn-outline-primary" title="View">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="/invoices/{{ inv.id }}/edit" class="btn btn-sm btn-outline-secondary" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <a href="/invoices/{{ inv.id }}/download/pdf" class="btn btn-sm btn-outline-danger" title="PDF">
+              <i class="bi bi-file-pdf"></i>
+            </a>
+            <a href="/invoices/{{ inv.id }}/download/docx" class="btn btn-sm btn-outline-dark" title="Word">
+              <i class="bi bi-file-word"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No invoices yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

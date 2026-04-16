@@ -408,6 +408,63 @@ def init_db():
         )
     """)
 
+    # projects table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS projects (
+            id              {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            name            TEXT NOT NULL,
+            client_name     TEXT NOT NULL,
+            client_address  TEXT,
+            client_gstin    TEXT,
+            start_date      DATE,
+            end_date        DATE,
+            status          TEXT DEFAULT 'Active',
+            total_value     NUMERIC(14,2) DEFAULT 0,
+            description     TEXT,
+            lead_id         INTEGER,
+            created_by      TEXT,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # invoices table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS invoices (
+            id              {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            invoice_no      TEXT UNIQUE NOT NULL,
+            date            DATE NOT NULL,
+            project_id      INTEGER,
+            client_name     TEXT NOT NULL,
+            client_address  TEXT,
+            client_gstin    TEXT,
+            lut_number      TEXT,
+            gst_rate        NUMERIC(5,2) DEFAULT 18,
+            subtotal        NUMERIC(14,2) DEFAULT 0,
+            gst_amount      NUMERIC(14,2) DEFAULT 0,
+            total           NUMERIC(14,2) DEFAULT 0,
+            notes           TEXT,
+            status          TEXT DEFAULT 'Draft',
+            created_by      TEXT,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # invoice_items table
+    c.execute(f"""
+        CREATE TABLE IF NOT EXISTS invoice_items (
+            id              {"SERIAL PRIMARY KEY" if _is_pg() else "INTEGER PRIMARY KEY AUTOINCREMENT"},
+            invoice_id      INTEGER NOT NULL,
+            description     TEXT NOT NULL,
+            sac_code        TEXT,
+            unit            INTEGER DEFAULT 1,
+            rate            NUMERIC(14,2) DEFAULT 0,
+            amount          NUMERIC(14,2) DEFAULT 0,
+            sort_order      INTEGER DEFAULT 0
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -1249,3 +1306,199 @@ def delete_income(income_id: int):
     c.execute(_q("DELETE FROM income_entries WHERE id=?"), (income_id,))
     conn.commit()
     conn.close()
+
+
+# ── PROJECTS ──────────────────────────────────────────────────────────────────
+
+def get_projects(status=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    if status:
+        c.execute(_q("SELECT * FROM projects WHERE status=? ORDER BY created_at DESC"), (status,))
+    else:
+        c.execute("SELECT * FROM projects ORDER BY created_at DESC")
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+
+def get_project(project_id: int) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM projects WHERE id=?"), (project_id,))
+    row = _fetchone(c.fetchone())
+    conn.close()
+    return row
+
+
+def create_project(data: dict) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    sql = _named("""
+        INSERT INTO projects (name, client_name, client_address, client_gstin,
+            start_date, end_date, status, total_value, description, lead_id, created_by, created_at, updated_at)
+        VALUES (:name,:client_name,:client_address,:client_gstin,
+            :start_date,:end_date,:status,:total_value,:description,:lead_id,:created_by,:now,:now)
+    """ + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, {**data, "now": now})
+    pid = _lastrow(c, "projects")
+    conn.commit()
+    conn.close()
+    return pid
+
+
+def update_project(project_id: int, data: dict):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_named("""
+        UPDATE projects SET name=:name, client_name=:client_name, client_address=:client_address,
+            client_gstin=:client_gstin, start_date=:start_date, end_date=:end_date,
+            status=:status, total_value=:total_value, description=:description,
+            updated_at=:updated_at WHERE id=:id
+    """), {**data, "id": project_id, "updated_at": datetime.utcnow().isoformat()})
+    conn.commit()
+    conn.close()
+
+
+def delete_project(project_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM projects WHERE id=?"), (project_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── INVOICES ──────────────────────────────────────────────────────────────────
+
+def get_invoices(status=None, project_id=None) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    sql = """SELECT i.*, p.name as project_name
+             FROM invoices i LEFT JOIN projects p ON i.project_id = p.id
+             WHERE 1=1"""
+    params = []
+    if status:
+        sql += _q(" AND i.status=?"); params.append(status)
+    if project_id:
+        sql += _q(" AND i.project_id=?"); params.append(project_id)
+    sql += " ORDER BY i.date DESC, i.id DESC"
+    c.execute(sql, params)
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+
+def get_invoice(invoice_id: int) -> dict | None:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("""SELECT i.*, p.name as project_name
+                    FROM invoices i LEFT JOIN projects p ON i.project_id = p.id
+                    WHERE i.id=?"""), (invoice_id,))
+    row = _fetchone(c.fetchone())
+    conn.close()
+    return row
+
+
+def get_invoice_items(invoice_id: int) -> list:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT * FROM invoice_items WHERE invoice_id=? ORDER BY sort_order, id"), (invoice_id,))
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    return rows
+
+
+def next_invoice_number(date_str: str) -> str:
+    """Generate next invoice number in format IN/MMYY/NN."""
+    from datetime import datetime as dt
+    d = dt.strptime(date_str[:10], "%Y-%m-%d")
+    prefix = f"IN/{d.strftime('%m%y')}/"
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("SELECT invoice_no FROM invoices WHERE invoice_no LIKE ? ORDER BY invoice_no DESC"), (prefix + "%",))
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    if not rows:
+        return prefix + "01"
+    last = rows[0]["invoice_no"]
+    try:
+        n = int(last.split("/")[-1]) + 1
+    except Exception:
+        n = len(rows) + 1
+    return prefix + str(n).zfill(2)
+
+
+def create_invoice(data: dict, items: list) -> int:
+    conn = get_db()
+    c = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    sql = _named("""
+        INSERT INTO invoices (invoice_no, date, project_id, client_name, client_address, client_gstin,
+            lut_number, gst_rate, subtotal, gst_amount, total, notes, status, created_by, created_at, updated_at)
+        VALUES (:invoice_no,:date,:project_id,:client_name,:client_address,:client_gstin,
+            :lut_number,:gst_rate,:subtotal,:gst_amount,:total,:notes,:status,:created_by,:now,:now)
+    """ + (" RETURNING id" if _is_pg() else ""))
+    c.execute(sql, {**data, "now": now})
+    inv_id = _lastrow(c, "invoices")
+    for i, item in enumerate(items):
+        c.execute(_named("""
+            INSERT INTO invoice_items (invoice_id, description, sac_code, unit, rate, amount, sort_order)
+            VALUES (:invoice_id,:description,:sac_code,:unit,:rate,:amount,:sort_order)
+        """), {**item, "invoice_id": inv_id, "sort_order": i})
+    conn.commit()
+    conn.close()
+    return inv_id
+
+
+def update_invoice(invoice_id: int, data: dict, items: list):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_named("""
+        UPDATE invoices SET invoice_no=:invoice_no, date=:date, project_id=:project_id,
+            client_name=:client_name, client_address=:client_address, client_gstin=:client_gstin,
+            lut_number=:lut_number, gst_rate=:gst_rate, subtotal=:subtotal, gst_amount=:gst_amount,
+            total=:total, notes=:notes, status=:status, updated_at=:updated_at WHERE id=:id
+    """), {**data, "id": invoice_id, "updated_at": datetime.utcnow().isoformat()})
+    c.execute(_q("DELETE FROM invoice_items WHERE invoice_id=?"), (invoice_id,))
+    for i, item in enumerate(items):
+        c.execute(_named("""
+            INSERT INTO invoice_items (invoice_id, description, sac_code, unit, rate, amount, sort_order)
+            VALUES (:invoice_id,:description,:sac_code,:unit,:rate,:amount,:sort_order)
+        """), {**item, "invoice_id": invoice_id, "sort_order": i})
+    conn.commit()
+    conn.close()
+
+
+def update_invoice_status(invoice_id: int, status: str):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("UPDATE invoices SET status=?, updated_at=? WHERE id=?"),
+              (status, datetime.utcnow().isoformat(), invoice_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_invoice(invoice_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(_q("DELETE FROM invoice_items WHERE invoice_id=?"), (invoice_id,))
+    c.execute(_q("DELETE FROM invoices WHERE id=?"), (invoice_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_invoice_summary() -> dict:
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT status, COUNT(*) as cnt, COALESCE(SUM(total),0) as total FROM invoices GROUP BY status")
+    rows = _fetchall(c.fetchall())
+    conn.close()
+    summary = {"Draft": {"count": 0, "total": 0}, "Sent": {"count": 0, "total": 0},
+               "Paid": {"count": 0, "total": 0}, "Overdue": {"count": 0, "total": 0}}
+    for r in rows:
+        s = r.get("status", "Draft")
+        if s in summary:
+            summary[s] = {"count": r["cnt"], "total": float(r["total"])}
+    summary["grand_total"] = sum(v["total"] for v in summary.values())
+    return summary

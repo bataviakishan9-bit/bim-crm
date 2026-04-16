@@ -1,0 +1,45 @@
+<div class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label fw-semibold">Project Name *</label>
+    <input class="form-control" name="name" required placeholder="e.g. BIM Coordination - Kalpataru">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label fw-semibold">Client Name *</label>
+    <input class="form-control" name="client_name" required placeholder="Company name">
+  </div>
+  <div class="col-12">
+    <label class="form-label fw-semibold">Client Address</label>
+    <textarea class="form-control" name="client_address" rows="2"
+      placeholder="Plot No., Street, City, PIN"></textarea>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label fw-semibold">Client GSTIN</label>
+    <input class="form-control" name="client_gstin" placeholder="24AAACK8387R1ZP">
+  </div>
+  <div class="col-md-6">
+    <label class="form-label fw-semibold">Status</label>
+    <select class="form-select" name="status">
+      <option value="Active" selected>Active</option>
+      <option value="Completed">Completed</option>
+      <option value="On Hold">On Hold</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label fw-semibold">Start Date</label>
+    <input type="date" class="form-control" name="start_date">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label fw-semibold">End Date</label>
+    <input type="date" class="form-control" name="end_date">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label fw-semibold">Contract Value (INR)</label>
+    <input type="number" class="form-control" name="total_value" step="0.01" placeholder="0">
+  </div>
+  <div class="col-12">
+    <label class="form-label fw-semibold">Description</label>
+    <textarea class="form-control" name="description" rows="2"
+      placeholder="Brief project scope"></textarea>
+  </div>
+</div>

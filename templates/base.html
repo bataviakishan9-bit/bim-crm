@@ -185,6 +185,12 @@
       <a href="/income" class="nav-link {% if request.path == '/income' %}active{% endif %}">
         <i class="bi bi-cash-stack"></i> Income
       </a>
+      <a href="/projects" class="nav-link {% if request.path.startswith('/projects') %}active{% endif %}">
+        <i class="bi bi-building"></i> Projects
+      </a>
+      <a href="/invoices" class="nav-link {% if request.path.startswith('/invoices') %}active{% endif %}">
+        <i class="bi bi-file-earmark-text"></i> Invoices
+      </a>
       <hr>
       <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
         <i class="bi bi-gear"></i> Settings

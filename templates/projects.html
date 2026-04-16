@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h4><i class="bi bi-building me-2"></i>Projects</h4>
+    <small class="text-muted">Active client engagements</small>
+  </div>
+  <button class="btn btn-bim" data-bs-toggle="modal" data-bs-target="#addProjectModal">
+    <i class="bi bi-plus-lg me-1"></i> New Project
+  </button>
+</div>
+
+<!-- Status filter -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  {% for s in ['', 'Active', 'Completed', 'On Hold', 'Cancelled'] %}
+  <a href="/projects?status={{ s }}"
+     class="btn btn-sm {{ 'btn-bim' if filter_status == s else 'btn-outline-secondary' }}">
+    {{ s or 'All' }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Summary cards -->
+{% set total_val = projects | sum(attribute='total_value') %}
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="number">{{ projects|length }}</div>
+      <div class="label">{{ filter_status or 'Total' }} Projects</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="number" style="color:#1b5e20;">&#8377;{{ '{:,.0f}'.format(total_val) }}</div>
+      <div class="label">Total Contract Value</div>
+    </div>
+  </div>
+</div>
+
+<!-- Projects Table -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead class="table-dark">
+        <tr>
+          <th class="ps-3">Project</th>
+          <th>Client</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Value (INR)</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects %}
+        <tr>
+          <td class="ps-3">
+            <strong>{{ p.name }}</strong>
+            {% if p.description %}<br><small class="text-muted">{{ p.description[:80] }}</small>{% endif %}
+          </td>
+          <td>
+            {{ p.client_name }}
+            {% if p.client_gstin %}<br><small class="text-muted">{{ p.client_gstin }}</small>{% endif %}
+          </td>
+          <td>{{ p.start_date or '—' }}</td>
+          <td>{{ p.end_date or '—' }}</td>
+          <td>{{ '{:,.0f}'.format(p.total_value or 0) }}</td>
+          <td>
+            {% set sc = {'Active':'success','Completed':'primary','On Hold':'warning','Cancelled':'danger'} %}
+            <span class="badge bg-{{ sc.get(p.status,'secondary') }}">{{ p.status }}</span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary" title="Edit"
+              onclick="editProject({{ p|tojson }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <a href="/invoices?project_id={{ p.id }}" class="btn btn-sm btn-outline-secondary" title="Invoices">
+              <i class="bi bi-file-earmark-text"></i>
+            </a>
+            <a href="/invoices/new?project_id={{ p.id }}" class="btn btn-sm btn-outline-success" title="New Invoice">
+              <i class="bi bi-plus"></i>
+            </a>
+            <form method="post" class="d-inline"
+                  onsubmit="return confirm('Delete project {{ p.name }}?')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="project_id" value="{{ p.id }}">
+              <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">No projects found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Project Modal -->
+<div class="modal fade" id="addProjectModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+          <h5 class="modal-title"><i class="bi bi-building me-2"></i>New Project</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          {% include '_project_fields.html' %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div class="modal fade" id="editProjectModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" id="editProjectForm">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="project_id" id="edit_project_id">
+        <div class="modal-header" style="background:#1B3A6B;color:#fff;">
+          <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Edit Project</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="editProjectBody">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-bim">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function editProject(p) {
+  document.getElementById('edit_project_id').value = p.id;
+  document.getElementById('editProjectBody').innerHTML = `
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Project Name *</label>
+        <input class="form-control" name="name" value="${p.name||''}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Client Name *</label>
+        <input class="form-control" name="client_name" value="${p.client_name||''}" required>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Client Address</label>
+        <textarea class="form-control" name="client_address" rows="2">${p.client_address||''}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Client GSTIN</label>
+        <input class="form-control" name="client_gstin" value="${p.client_gstin||''}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Status</label>
+        <select class="form-select" name="status">
+          ${['Active','Completed','On Hold','Cancelled'].map(s=>`<option ${p.status==s?'selected':''} value="${s}">${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Start Date</label>
+        <input type="date" class="form-control" name="start_date" value="${p.start_date||''}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">End Date</label>
+        <input type="date" class="form-control" name="end_date" value="${p.end_date||''}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Contract Value (INR)</label>
+        <input type="number" class="form-control" name="total_value" value="${p.total_value||0}" step="0.01">
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Description</label>
+        <textarea class="form-control" name="description" rows="2">${p.description||''}</textarea>
+      </div>
+    </div>`;
+  new bootstrap.Modal(document.getElementById('editProjectModal')).show();
+}
+</script>
+{% endblock %}

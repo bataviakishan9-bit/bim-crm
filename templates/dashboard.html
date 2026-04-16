@@ -416,4 +416,188 @@ function useEmail(leadId, email) {
   </div>
 
 </div>
+
+<!-- ── My Tasks + Team Tasks + Invoices ── -->
+<div class="row g-3 mt-1">
+
+  <!-- My Pending Tasks (responsibilities + team tasks) -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"
+           style="background:#1B3A6B;color:#fff;">
+        <strong><i class="bi bi-person-check me-1"></i>My Tasks</strong>
+        <a href="/team-tasks?user={{ current_user.username }}" style="color:#aed6f1;font-size:12px;">View all</a>
+      </div>
+      <div class="card-body p-0">
+        {% set all_my = (my_resp[:3] + my_tasks[:4]) %}
+        {% if all_my or my_tasks %}
+        <ul class="list-group list-group-flush">
+          {% for r in my_resp[:3] %}
+          <li class="list-group-item px-3 py-2">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <span class="badge bg-secondary" style="font-size:10px;">Resp.</span>
+                <span style="font-size:13px;font-weight:500;"> {{ r.title[:40] }}</span>
+                {% if r.category %}
+                <div style="font-size:11px;color:#888;">{{ r.category }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+          {% for t in my_tasks[:4] %}
+          <li class="list-group-item px-3 py-2">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                {% set pc = {'High':'danger','Medium':'warning','Low':'secondary'} %}
+                <span class="badge bg-{{ pc.get(t.priority,'secondary') }}" style="font-size:10px;">
+                  {{ t.priority }}
+                </span>
+                <span style="font-size:13px;font-weight:500;"> {{ t.title[:35] }}</span>
+                <div style="font-size:11px;color:#888;">
+                  {% if t.due_date %}Due: {{ t.due_date[:10] }}{% endif %}
+                  {% if t.lead_fname %} · {{ t.lead_fname }} {{ t.lead_lname or '' }}{% endif %}
+                </div>
+              </div>
+              <form method="post" action="/team-tasks/{{ t.id }}/status" class="flex-shrink-0">
+                <input type="hidden" name="status" value="Done">
+                <input type="hidden" name="redirect" value="dashboard">
+                <button class="btn btn-sm btn-outline-success" style="font-size:10px;padding:1px 6px;">
+                  Done
+                </button>
+              </form>
+            </div>
+          </li>
+          {% endfor %}
+          {% if not my_resp and not my_tasks %}
+          <li class="list-group-item text-center text-muted py-3" style="font-size:13px;">
+            No pending tasks
+          </li>
+          {% endif %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:13px;">No pending tasks</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Team Tasks (all open) -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"
+           style="background:#2C3E50;color:#fff;">
+        <strong><i class="bi bi-people me-1"></i>Team Tasks</strong>
+        <a href="/team-tasks" style="color:#aed6f1;font-size:12px;">View all</a>
+      </div>
+      <div class="card-body p-0">
+        {% if team_tasks %}
+        <ul class="list-group list-group-flush">
+          {% for t in team_tasks[:7] %}
+          <li class="list-group-item px-3 py-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                {% set uc = {'kishan':'#16A085','hirakraj':'#2980B9','jenish':'#8E44AD','tirth':'#E74C3C'} %}
+                <span style="font-size:12px;font-weight:700;color:{{ uc.get(t.assigned_to,'#666') }};">
+                  {{ t.assigned_to | capitalize }}
+                </span>
+                <span style="font-size:13px;"> – {{ t.title[:30] }}</span>
+                <div style="font-size:11px;color:#888;">
+                  {% set pc = {'High':'danger','Medium':'warning','Low':'secondary'} %}
+                  <span class="badge bg-{{ pc.get(t.priority,'secondary') }}" style="font-size:9px;">
+                    {{ t.priority }}
+                  </span>
+                  {{ t.status }}
+                  {% if t.due_date %} · {{ t.due_date[:10] }}{% endif %}
+                </div>
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:13px;">No open team tasks</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices + Active Projects -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center"
+           style="background:#117A65;color:#fff;">
+        <strong><i class="bi bi-file-earmark-text me-1"></i>Invoices</strong>
+        <a href="/invoices" style="color:#a9dfbf;font-size:12px;">View all</a>
+      </div>
+      <div class="card-body">
+        <!-- Invoice summary -->
+        <div class="row g-2 mb-3">
+          {% for label, color in [('Sent','primary'),('Overdue','danger'),('Paid','success')] %}
+          {% set s = inv_summary.get(label, {'count':0,'total':0}) %}
+          <div class="col-4 text-center">
+            <div style="font-size:20px;font-weight:700;color:var(--bs-{{ color }});">{{ s.count }}</div>
+            <div style="font-size:10px;color:#888;">{{ label }}</div>
+            <div style="font-size:10px;color:#666;">&#8377;{{ '{:,.0f}'.format(s.total) }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <!-- Recent invoices -->
+        <ul class="list-group list-group-flush" style="font-size:12px;">
+          {% for inv in recent_invoices %}
+          <li class="list-group-item px-0 py-1 d-flex justify-content-between">
+            <a href="/invoices/{{ inv.id }}" style="color:#1B3A6B;">{{ inv.invoice_no }}</a>
+            <span>&#8377;{{ '{:,.0f}'.format(inv.total or 0) }}</span>
+            {% set sc = {'Draft':'secondary','Sent':'primary','Paid':'success','Overdue':'danger'} %}
+            <span class="badge bg-{{ sc.get(inv.status,'secondary') }}" style="font-size:10px;">
+              {{ inv.status }}
+            </span>
+          </li>
+          {% else %}
+          <li class="list-group-item px-0 text-muted text-center">No invoices</li>
+          {% endfor %}
+        </ul>
+        <a href="/invoices/new" class="btn btn-sm btn-outline-success w-100 mt-2">
+          <i class="bi bi-plus"></i> New Invoice
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Active Projects strip -->
+{% if projects %}
+<div class="card mt-3">
+  <div class="card-header d-flex justify-content-between align-items-center" style="background:#1B3A6B;color:#fff;">
+    <strong><i class="bi bi-building me-1"></i>Active Projects</strong>
+    <a href="/projects" style="color:#aed6f1;font-size:12px;">View all</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:12px;">
+      <thead style="background:#f8f9fa;">
+        <tr>
+          <th class="ps-3">Project</th>
+          <th>Client</th>
+          <th>Start</th>
+          <th>End</th>
+          <th class="text-end pe-3">Value (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projects[:5] %}
+        <tr>
+          <td class="ps-3"><a href="/projects" style="color:#1B3A6B;">{{ p.name }}</a></td>
+          <td>{{ p.client_name }}</td>
+          <td>{{ p.start_date or '—' }}</td>
+          <td>{{ p.end_date or '—' }}</td>
+          <td class="text-end pe-3">&#8377;{{ '{:,.0f}'.format(p.total_value or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h4><i class="bi bi-file-earmark-text me-2"></i>{{ invoice.invoice_no }}</h4>
+    <small class="text-muted">{{ invoice.client_name }} — {{ invoice.date }}</small>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/invoices/{{ invoice.id }}/edit" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-pencil me-1"></i> Edit
+    </a>
+    <a href="/invoices/{{ invoice.id }}/download/docx" class="btn btn-outline-dark btn-sm">
+      <i class="bi bi-file-word me-1"></i> Word
+    </a>
+    <a href="/invoices/{{ invoice.id }}/download/pdf" class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-file-pdf me-1"></i> PDF
+    </a>
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-printer me-1"></i> Print
+    </button>
+    <a href="/invoices" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i> Back
+    </a>
+  </div>
+</div>
+
+<!-- Status update -->
+<div class="d-flex align-items-center gap-3 mb-3">
+  {% set sc = {'Draft':'secondary','Sent':'primary','Paid':'success','Overdue':'danger'} %}
+  <span class="badge bg-{{ sc.get(invoice.status,'secondary') }} fs-6">{{ invoice.status }}</span>
+  <form method="post" action="/invoices/{{ invoice.id }}/status" class="d-flex gap-2">
+    <select name="status" class="form-select form-select-sm" style="width:140px;">
+      {% for s in ['Draft','Sent','Paid','Overdue'] %}
+      <option {{ 'selected' if invoice.status==s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-bim">Update</button>
+  </form>
+  <form method="post" action="/invoices/{{ invoice.id }}/delete"
+        onsubmit="return confirm('Delete this invoice?')">
+    <button class="btn btn-sm btn-outline-danger">
+      <i class="bi bi-trash me-1"></i> Delete
+    </button>
+  </form>
+</div>
+
+<!-- Invoice preview -->
+<div class="card" id="invoicePrint" style="max-width:780px;">
+  <div class="card-body p-4">
+
+    <!-- Header -->
+    <div class="text-center mb-2">
+      <h2 style="color:#1B3A6B;font-weight:800;letter-spacing:1px;">BIM INFRASOLUTIONS LLP</h2>
+    </div>
+    <div class="d-flex justify-content-between mb-1" style="font-size:12px;">
+      <span>GSTIN: {{ invoice.company_gstin or '24AAUFB9689E1ZS' }}</span>
+      <span>LLPIN: {{ invoice.llpin or 'AAP-1096' }}</span>
+    </div>
+    {% if invoice.lut_number %}
+    <div style="font-size:12px;">LUT Number: {{ invoice.lut_number }}</div>
+    {% endif %}
+    <hr style="border-top:2px solid #1B3A6B;">
+
+    <div class="text-center mb-2">
+      <strong style="font-size:16px;text-decoration:underline;">Tax Invoice</strong>
+    </div>
+    <div class="d-flex justify-content-between mb-3">
+      <div></div>
+      <div style="font-size:13px;">
+        <strong>Date:</strong> {{ invoice.date }}<br>
+        <strong>Invoice no:</strong> {{ invoice.invoice_no }}
+      </div>
+    </div>
+
+    <!-- To -->
+    <div class="mb-3" style="font-size:13px;">
+      <strong>To,</strong><br>
+      <strong>{{ invoice.client_name }}</strong><br>
+      {% if invoice.client_address %}{{ invoice.client_address }}<br>{% endif %}
+      {% if invoice.client_gstin %}<strong>GSTIN: {{ invoice.client_gstin }}</strong>{% endif %}
+    </div>
+
+    <!-- Items table -->
+    <table class="table table-bordered mb-0" style="font-size:13px;">
+      <thead style="background:#1B3A6B;color:#fff;">
+        <tr>
+          <th>Particulars</th>
+          <th style="width:80px;text-align:center;">Unit</th>
+          <th style="width:130px;text-align:right;">Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>
+            {{ item.description }}
+            {% if item.sac_code %} (SAC: {{ item.sac_code }}){% endif %}
+          </td>
+          <td style="text-align:center;">{{ item.unit }}</td>
+          <td style="text-align:right;">{{ '{:,.0f}'.format(item.amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+        <!-- GST row -->
+        <tr>
+          <td>GST {{ invoice.gst_rate|int }}%</td>
+          <td></td>
+          <td style="text-align:right;">{{ '{:,.0f}'.format(invoice.gst_amount or 0) }}</td>
+        </tr>
+        <!-- Total row -->
+        <tr style="background:#EBF5FB;">
+          <td><strong>Total Bill</strong></td>
+          <td style="text-align:center;">—</td>
+          <td style="text-align:right;"><strong>{{ '{:,.0f}'.format(invoice.total or 0) }} INR</strong></td>
+        </tr>
+        <!-- Words row -->
+        <tr style="background:#EBF5FB;">
+          <td colspan="3" style="text-align:center;">
+            <em><strong>Total amount in words:</strong>
+            {% set t = invoice.total|float %}
+            {% set rupees = t|int %}
+            {{ rupees }} INR only
+            </em>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    {% if invoice.notes %}
+    <p class="mt-3 mb-1" style="font-size:12px;"><strong>Notes:</strong> {{ invoice.notes }}</p>
+    {% endif %}
+
+    <!-- Signature -->
+    <div class="text-end mt-4 mb-2">
+      <strong>Mr. Kishan Batavia</strong><br><br>
+      <strong>Authorized Signatory</strong>
+    </div>
+
+    <hr>
+
+    <!-- Terms -->
+    <p style="font-size:12px;"><strong>Terms and Conditions:</strong></p>
+    <ol style="font-size:12px;">
+      <li>Subject to Ahmedabad Jurisdiction.</li>
+      <li>The payment shall be released within two weeks from the date of invoice.</li>
+      <li>In case of electronic fund transfer banking information is as under:</li>
+    </ol>
+
+    <!-- Bank details -->
+    <table class="table table-bordered mb-0" style="font-size:12px;">
+      <thead><tr><th colspan="2" style="text-align:center;background:#f8f9fa;">ACCOUNT DETAILS</th></tr></thead>
+      <tbody>
+        {% for label, val in [
+          ('Beneficiary account name','BIM INFRASOLUTIONS LLP'),
+          ('PAN','AAUFB9689E'),
+          ('IFSC code','HDFC0003905'),
+          ('Account no','50200041261501'),
+          ('Account branch','ST XAVIERS COLLEGE ROAD'),
+          ('Branch code','3905'),
+          ('Address','HDFC Bank Ltd, Shop No. 7/8, Gr Floor, Zodiac Plaza, Navrangpura, Ahmedabad – 380009, Gujarat, India.'),
+          ('Swift code','HDFCINBB'),
+          ('GST no','24AAUFB9689E1ZS'),
+        ] %}
+        <tr>
+          <td style="width:35%;font-weight:600;">{{ label }}</td>
+          <td>{{ val }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <hr>
+    <p class="text-center text-muted" style="font-size:11px;">
+      302, Shahibaug Greens, Shahibaug, Ahmedabad, Gujarat, India.
+      Phone: +91 8511184053, +64 225053122 |
+      E-Mail: info@biminfrasolutions.in |
+      Website: www.biminfrasolutions.in
+    </p>
+  </div>
+</div>
+
+<style>
+@media print {
+  body * { visibility: hidden; }
+  #invoicePrint, #invoicePrint * { visibility: visible; }
+  #invoicePrint { position: absolute; left: 0; top: 0; width: 100%; }
+  .page-header, .d-flex.gap-2 { display: none !important; }
+}
+</style>
+{% endblock %}

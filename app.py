@@ -185,13 +185,26 @@ def require_login():
 # ── DASHBOARD ──────────────────────────────────────────────────────────────────
 
 @app.route("/")
+@login_required
 def dashboard():
-    stats         = db.get_stats()
-    tasks         = db.get_tasks(status="Not Started")
-    due_leads     = db.get_due_email_leads()
-    invalid_leads = db.get_invalid_leads_with_bounce()
+    stats           = db.get_stats()
+    tasks           = db.get_tasks(status="Not Started")
+    due_leads       = db.get_due_email_leads()
+    invalid_leads   = db.get_invalid_leads_with_bounce()
+    my_tasks        = db.get_team_tasks(assigned_to=current_user.username, status=None)
+    my_tasks        = [t for t in my_tasks if t.get("status") not in ("Done", "Cancelled")]
+    team_tasks      = db.get_team_tasks(assigned_to=None, status=None)
+    team_tasks      = [t for t in team_tasks if t.get("status") not in ("Done", "Cancelled")]
+    my_resp         = db.get_responsibilities(assigned_to=current_user.username)
+    my_resp         = [r for r in my_resp if r.get("status") == "Active"]
+    recent_invoices = db.get_invoices()[:5]
+    inv_summary     = db.get_invoice_summary()
+    projects        = db.get_projects(status="Active")
     return render_template("dashboard.html", stats=stats, tasks=tasks,
                            due_leads=due_leads, invalid_leads=invalid_leads,
+                           my_tasks=my_tasks, team_tasks=team_tasks,
+                           my_resp=my_resp, recent_invoices=recent_invoices,
+                           inv_summary=inv_summary, projects=projects,
                            now=datetime.now())
 
 
@@ -1678,6 +1691,16 @@ def team_tasks():
                            current_username=current_user.username)
 
 
+@app.route("/team-tasks/<int:tid>/status", methods=["POST"])
+@login_required
+def team_task_quick_status(tid):
+    db.update_team_task_status(tid, request.form.get("status", "Done"))
+    redir = request.form.get("redirect", "team_tasks")
+    if redir == "dashboard":
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("team_tasks"))
+
+
 # ── REMINDERS ──────────────────────────────────────────────────────────────────
 
 @app.route("/reminders")
@@ -2081,6 +2104,253 @@ def income():
                            filter_month=filter_month,
                            filter_category=filter_category,
                            now=datetime.now())
+
+
+# ── PROJECTS ──────────────────────────────────────────────────────────────────
+
+@app.route("/projects", methods=["GET", "POST"])
+@login_required
+def projects():
+    filter_status = request.args.get("status", "")
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "create":
+            db.create_project({
+                "name"          : request.form.get("name", "").strip(),
+                "client_name"   : request.form.get("client_name", "").strip(),
+                "client_address": request.form.get("client_address", "").strip(),
+                "client_gstin"  : request.form.get("client_gstin", "").strip(),
+                "start_date"    : request.form.get("start_date") or None,
+                "end_date"      : request.form.get("end_date") or None,
+                "status"        : request.form.get("status", "Active"),
+                "total_value"   : float(request.form.get("total_value") or 0),
+                "description"   : request.form.get("description", "").strip(),
+                "lead_id"       : request.form.get("lead_id") or None,
+                "created_by"    : current_user.username,
+            })
+            flash("Project created.", "success")
+        elif action == "edit":
+            pid = int(request.form.get("project_id"))
+            db.update_project(pid, {
+                "name"          : request.form.get("name", "").strip(),
+                "client_name"   : request.form.get("client_name", "").strip(),
+                "client_address": request.form.get("client_address", "").strip(),
+                "client_gstin"  : request.form.get("client_gstin", "").strip(),
+                "start_date"    : request.form.get("start_date") or None,
+                "end_date"      : request.form.get("end_date") or None,
+                "status"        : request.form.get("status", "Active"),
+                "total_value"   : float(request.form.get("total_value") or 0),
+                "description"   : request.form.get("description", "").strip(),
+            })
+            flash("Project updated.", "success")
+        elif action == "delete":
+            db.delete_project(int(request.form.get("project_id")))
+            flash("Project deleted.", "info")
+        return redirect(url_for("projects", status=filter_status))
+
+    all_projects = db.get_projects(status=filter_status or None)
+    return render_template("projects.html",
+                           projects=all_projects,
+                           filter_status=filter_status,
+                           now=datetime.now())
+
+
+@app.route("/leads/<int:lead_id>/to-project", methods=["GET", "POST"])
+@login_required
+def lead_to_project(lead_id):
+    lead = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
+    if request.method == "POST":
+        pid = db.create_project({
+            "name"          : request.form.get("name", lead.get("company", "")).strip(),
+            "client_name"   : request.form.get("client_name", lead.get("company", "")).strip(),
+            "client_address": request.form.get("client_address", "").strip(),
+            "client_gstin"  : request.form.get("client_gstin", "").strip(),
+            "start_date"    : request.form.get("start_date") or None,
+            "end_date"      : request.form.get("end_date") or None,
+            "status"        : "Active",
+            "total_value"   : float(request.form.get("total_value") or 0),
+            "description"   : request.form.get("description", "").strip(),
+            "lead_id"       : lead_id,
+            "created_by"    : current_user.username,
+        })
+        # Mark lead as converted
+        db.update_lead_status(lead_id, "Client")
+        flash(f"Lead converted to project #{pid}.", "success")
+        return redirect(url_for("projects"))
+    return render_template("lead_to_project.html", lead=lead, now=datetime.now())
+
+
+# ── INVOICES ──────────────────────────────────────────────────────────────────
+
+@app.route("/invoices")
+@login_required
+def invoices():
+    filter_status  = request.args.get("status", "")
+    filter_project = request.args.get("project_id", "")
+    all_invoices = db.get_invoices(
+        status=filter_status or None,
+        project_id=int(filter_project) if filter_project else None
+    )
+    summary  = db.get_invoice_summary()
+    projects = db.get_projects()
+    return render_template("invoices.html",
+                           invoices=all_invoices,
+                           summary=summary,
+                           projects=projects,
+                           filter_status=filter_status,
+                           filter_project=filter_project,
+                           now=datetime.now())
+
+
+@app.route("/invoices/new", methods=["GET", "POST"])
+@login_required
+def invoice_new():
+    if request.method == "POST":
+        return _save_invoice(None)
+    date_default = datetime.now().strftime("%Y-%m-%d")
+    inv_no = db.next_invoice_number(date_default)
+    projects = db.get_projects()
+    return render_template("invoice_form.html", invoice=None, items=[],
+                           inv_no=inv_no, date_default=date_default,
+                           projects=projects, now=datetime.now())
+
+
+@app.route("/invoices/<int:invoice_id>/edit", methods=["GET", "POST"])
+@login_required
+def invoice_edit(invoice_id):
+    invoice = db.get_invoice(invoice_id)
+    if not invoice:
+        flash("Invoice not found.", "danger")
+        return redirect(url_for("invoices"))
+    if request.method == "POST":
+        return _save_invoice(invoice_id)
+    items    = db.get_invoice_items(invoice_id)
+    projects = db.get_projects()
+    return render_template("invoice_form.html", invoice=invoice, items=items,
+                           inv_no=invoice["invoice_no"],
+                           date_default=invoice.get("date", ""),
+                           projects=projects, now=datetime.now())
+
+
+@app.route("/invoices/<int:invoice_id>")
+@login_required
+def invoice_view(invoice_id):
+    invoice = db.get_invoice(invoice_id)
+    if not invoice:
+        flash("Invoice not found.", "danger")
+        return redirect(url_for("invoices"))
+    items = db.get_invoice_items(invoice_id)
+    return render_template("invoice_view.html", invoice=invoice, items=items, now=datetime.now())
+
+
+@app.route("/invoices/<int:invoice_id>/status", methods=["POST"])
+@login_required
+def invoice_status(invoice_id):
+    db.update_invoice_status(invoice_id, request.form.get("status", "Draft"))
+    flash("Invoice status updated.", "success")
+    return redirect(url_for("invoice_view", invoice_id=invoice_id))
+
+
+@app.route("/invoices/<int:invoice_id>/delete", methods=["POST"])
+@login_required
+def invoice_delete(invoice_id):
+    db.delete_invoice(invoice_id)
+    flash("Invoice deleted.", "info")
+    return redirect(url_for("invoices"))
+
+
+@app.route("/invoices/<int:invoice_id>/download/docx")
+@login_required
+def invoice_download_docx(invoice_id):
+    from flask import Response
+    import invoice_generator as ig
+    invoice = db.get_invoice(invoice_id)
+    items   = db.get_invoice_items(invoice_id)
+    if not invoice:
+        return "Not found", 404
+    data = ig.generate_docx(invoice, items)
+    fname = f"Invoice_{invoice['invoice_no'].replace('/', '_')}.docx"
+    return Response(data,
+                    mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@app.route("/invoices/<int:invoice_id>/download/pdf")
+@login_required
+def invoice_download_pdf(invoice_id):
+    from flask import Response
+    import invoice_generator as ig
+    invoice = db.get_invoice(invoice_id)
+    items   = db.get_invoice_items(invoice_id)
+    if not invoice:
+        return "Not found", 404
+    data = ig.generate_pdf(invoice, items)
+    fname = f"Invoice_{invoice['invoice_no'].replace('/', '_')}.pdf"
+    return Response(data, mimetype="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+def _save_invoice(invoice_id):
+    """Parse invoice form and create/update invoice + items."""
+    date_str    = request.form.get("date", "")
+    inv_no      = request.form.get("invoice_no", "").strip()
+    project_id  = request.form.get("project_id") or None
+    gst_rate    = float(request.form.get("gst_rate", 18) or 18)
+
+    # Parse line items
+    descriptions = request.form.getlist("item_description[]")
+    sac_codes    = request.form.getlist("item_sac[]")
+    units        = request.form.getlist("item_unit[]")
+    rates        = request.form.getlist("item_rate[]")
+
+    items = []
+    subtotal = 0.0
+    for i, desc in enumerate(descriptions):
+        if not desc.strip():
+            continue
+        rate = float(rates[i] if i < len(rates) else 0 or 0)
+        unit = int(units[i] if i < len(units) else 1 or 1)
+        amt  = rate * unit
+        subtotal += amt
+        items.append({
+            "description": desc.strip(),
+            "sac_code"   : sac_codes[i] if i < len(sac_codes) else "",
+            "unit"       : unit,
+            "rate"       : rate,
+            "amount"     : amt,
+        })
+
+    gst_amount = round(subtotal * gst_rate / 100, 2)
+    total      = round(subtotal + gst_amount, 2)
+
+    data = {
+        "invoice_no"     : inv_no,
+        "date"           : date_str,
+        "project_id"     : int(project_id) if project_id else None,
+        "client_name"    : request.form.get("client_name", "").strip(),
+        "client_address" : request.form.get("client_address", "").strip(),
+        "client_gstin"   : request.form.get("client_gstin", "").strip(),
+        "lut_number"     : request.form.get("lut_number", "").strip(),
+        "gst_rate"       : gst_rate,
+        "subtotal"       : subtotal,
+        "gst_amount"     : gst_amount,
+        "total"          : total,
+        "notes"          : request.form.get("notes", "").strip(),
+        "status"         : request.form.get("status", "Draft"),
+        "created_by"     : current_user.username,
+    }
+
+    if invoice_id:
+        db.update_invoice(invoice_id, data, items)
+        flash("Invoice updated.", "success")
+        return redirect(url_for("invoice_view", invoice_id=invoice_id))
+    else:
+        new_id = db.create_invoice(data, items)
+        flash("Invoice created.", "success")
+        return redirect(url_for("invoice_view", invoice_id=new_id))
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
