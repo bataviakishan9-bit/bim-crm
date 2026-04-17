@@ -2868,6 +2868,72 @@ except Exception as _sched_err:
     _log.getLogger(__name__).warning("Scheduler not started: %s", _sched_err)
 
 
+# ── ADMIN: BULK STATUS UPDATE BY EMAIL DATE ───────────────────────────────────
+
+@app.route("/admin/fix-status", methods=["GET", "POST"])
+@login_required
+def admin_fix_status():
+    """Find leads emailed on a given date and change their status."""
+    if current_user.username != "kishan":
+        flash("Admin only.", "danger")
+        return redirect(url_for("dashboard"))
+
+    leads_found = []
+    updated = 0
+    error = None
+
+    date_str   = request.form.get("date", "2026-04-14")
+    new_status = request.form.get("new_status", "Contacted")
+    do_update  = request.method == "POST" and request.form.get("confirm") == "yes"
+
+    try:
+        conn = db.get_db()
+        c    = conn.cursor()
+        # Find leads emailed on this date
+        if db._is_pg():
+            c.execute("""
+                SELECT DISTINCT l.id, l.first_name, l.last_name, l.email, l.company, l.status,
+                       MAX(el.sent_at) as last_sent
+                FROM email_logs el
+                JOIN leads l ON l.id = el.lead_id
+                WHERE DATE(el.sent_at) = %s
+                GROUP BY l.id, l.first_name, l.last_name, l.email, l.company, l.status
+                ORDER BY l.first_name
+            """, (date_str,))
+        else:
+            c.execute("""
+                SELECT DISTINCT l.id, l.first_name, l.last_name, l.email, l.company, l.status,
+                       MAX(el.sent_at) as last_sent
+                FROM email_logs el
+                JOIN leads l ON l.id = el.lead_id
+                WHERE DATE(el.sent_at) = ?
+                GROUP BY l.id
+                ORDER BY l.first_name
+            """, (date_str,))
+        leads_found = db._fetchall(c.fetchall())
+
+        if do_update and leads_found:
+            ids = [r["id"] for r in leads_found]
+            for lid in ids:
+                if db._is_pg():
+                    c.execute("UPDATE leads SET status=%s WHERE id=%s", (new_status, lid))
+                else:
+                    c.execute("UPDATE leads SET status=? WHERE id=?", (new_status, lid))
+            conn.commit()
+            updated = len(ids)
+            # Refresh status in results
+            for r in leads_found:
+                r["status"] = new_status
+            flash(f"Updated {updated} leads to '{new_status}'.", "success")
+        conn.close()
+    except Exception as exc:
+        error = str(exc)
+
+    return render_template("admin_fix_status.html",
+                           leads=leads_found, updated=updated, error=error,
+                           date_str=date_str, new_status=new_status)
+
+
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

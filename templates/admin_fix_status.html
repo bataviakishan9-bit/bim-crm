@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-pencil-square me-2"></i>Bulk Status Update by Email Date</h4>
+    <small class="text-muted">Find leads emailed on a date and change their status</small>
+  </div>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    {% if error %}
+    <div class="alert alert-danger py-2" style="font-size:13px;">{{ error }}</div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-body p-4">
+        <form method="POST" action="/admin/fix-status">
+          <div class="row g-3 mb-3">
+            <div class="col-md-5">
+              <label class="form-label" style="font-size:13px;font-weight:600;">Email Date</label>
+              <input type="date" name="date" class="form-control" value="{{ date_str }}" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" style="font-size:13px;font-weight:600;">Change Status To</label>
+              <select name="new_status" class="form-select">
+                <option value="New" {% if new_status=="New" %}selected{% endif %}>New</option>
+                <option value="Contacted" {% if new_status=="Contacted" %}selected{% endif %}>Contacted</option>
+                <option value="Follow-up" {% if new_status=="Follow-up" %}selected{% endif %}>Follow-up</option>
+                <option value="Warm" {% if new_status=="Warm" %}selected{% endif %}>Warm</option>
+                <option value="Engaged" {% if new_status=="Engaged" %}selected{% endif %}>Engaged</option>
+                <option value="Invalid" {% if new_status=="Invalid" %}selected{% endif %}>Invalid</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button type="submit" class="btn btn-outline-secondary w-100">Preview</button>
+            </div>
+          </div>
+
+          {% if leads %}
+          <div class="mb-3">
+            <p style="font-size:13px;color:var(--muted);">Found <strong>{{ leads|length }}</strong> leads emailed on <strong>{{ date_str }}</strong>:</p>
+            <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+              <table class="table table-sm mb-0" style="font-size:12px;">
+                <thead><tr><th>Name</th><th>Email</th><th>Company</th><th>Current Status</th></tr></thead>
+                <tbody>
+                  {% for l in leads %}
+                  <tr>
+                    <td>{{ l.first_name }} {{ l.last_name }}</td>
+                    <td style="color:var(--muted);">{{ l.email }}</td>
+                    <td style="color:var(--muted);">{{ l.company }}</td>
+                    <td><span class="badge bg-secondary">{{ l.status }}</span></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <input type="hidden" name="confirm" value="yes">
+          <button type="submit" class="btn btn-bim w-100">
+            <i class="bi bi-check-lg me-1"></i> Update All {{ leads|length }} Leads to "{{ new_status }}"
+          </button>
+          {% elif request.method == 'POST' %}
+          <div class="alert alert-info py-2" style="font-size:13px;">No leads found emailed on {{ date_str }}.</div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <a href="/leads" class="btn btn-outline-secondary btn-sm">Back to Leads</a>
+  </div>
+</div>
+
+{% endblock %}
