@@ -17,6 +17,31 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "bim-infra-crm-2025")
 
+# ── Team / Chat integration ────────────────────────────────────────────────────
+import team as tm
+from chat_routes import register_chat_routes
+
+try:
+    tm.init_team_tables()
+except Exception as _te:
+    import logging; logging.getLogger(__name__).warning("Team tables init: %s", _te)
+
+register_chat_routes(app, platform="crm")
+
+@app.context_processor
+def inject_team():
+    uid  = session.get("team_user_id")
+    user = tm.get_user_by_id(uid) if uid else None
+    role = session.get("team_role", "viewer")
+    return dict(
+        _current_user = user,
+        _team_role    = role,
+        _can          = lambda action: tm.can(role, action),
+        _PLATFORM     = "crm",
+        _CHANNELS     = tm.CHANNELS,
+        _ROLES        = tm.ROLES,
+    )
+
 # ── LOGIN SETUP ────────────────────────────────────────────────────────────────
 
 login_manager = LoginManager(app)
@@ -84,6 +109,11 @@ def login():
         if info and check_password_hash(info["hash"], password):
             user = CRMUser(info["id"], username, info["display"])
             login_user(user, remember=request.form.get("remember") == "on")
+            # Also set team session for chat/notifications
+            team_user = tm.authenticate(username, password)
+            if team_user:
+                session["team_user_id"] = team_user["id"]
+                session["team_role"]    = team_user["role"]
             next_page = request.args.get("next")
             return redirect(next_page or url_for("dashboard"))
         flash("Invalid username or password.", "danger")
@@ -98,6 +128,8 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    session.pop("team_user_id", None)
+    session.pop("team_role", None)
     logout_user()
     flash("You have been logged out.", "info")
     return redirect(url_for("login"))
@@ -2932,6 +2964,139 @@ def admin_fix_status():
     return render_template("admin_fix_status.html",
                            leads=leads_found, updated=updated, error=error,
                            date_str=date_str, new_status=new_status)
+
+
+# ── TEAM MANAGEMENT ───────────────────────────────────────────────────────────
+
+@app.route("/team")
+@login_required
+def team_page():
+    role = session.get("team_role", "viewer")
+    if role != "admin":
+        flash("Admin access required.", "danger")
+        return redirect(url_for("dashboard"))
+    users = tm.get_all_users()
+    return render_template("team.html", users=users, roles=tm.ROLES,
+                           current_role=role)
+
+@app.route("/team/create", methods=["POST"])
+@login_required
+def team_create_user():
+    if session.get("team_role") != "admin":
+        return jsonify({"error": "forbidden"}), 403
+    data     = request.get_json() or {}
+    username = data.get("username","").strip().lower()
+    display  = data.get("display_name","").strip()
+    password = data.get("password","").strip()
+    role     = data.get("role","viewer")
+    email    = data.get("email","").strip()
+    color    = data.get("avatar_color","#888")
+    if not username or not display or not password:
+        return jsonify({"error": "username, display_name and password required"}), 400
+    try:
+        new_id = tm.create_user(username, display, password, role, email, color)
+        tm.post_system_message("general",
+            f"👋 {display} (@{username}) joined the team as {role}.", "crm")
+        return jsonify({"ok": True, "id": new_id})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/team/update/<int:user_id>", methods=["POST"])
+@login_required
+def team_update_user(user_id):
+    if session.get("team_role") != "admin":
+        return jsonify({"error": "forbidden"}), 403
+    data = request.get_json() or {}
+    allowed = ["display_name","role","email","avatar_color","is_active"]
+    fields  = {k: v for k, v in data.items() if k in allowed}
+    if "password" in data and data["password"]:
+        fields["password"] = data["password"]
+    if fields:
+        tm.update_user(user_id, fields)
+    return jsonify({"ok": True})
+
+@app.route("/team/users.json")
+@login_required
+def team_users_json():
+    return jsonify({"users": tm.get_all_users()})
+
+
+# ── AUTO SYNC RECEIVER (from LeadGen) ─────────────────────────────────────────
+
+@app.route("/api/import-leads", methods=["POST"])
+def api_import_leads():
+    """Receive leads from BIM LeadGen and insert into CRM."""
+    # Verify shared secret
+    secret   = os.getenv("SYNC_SECRET", "bim-sync-2025")
+    req_secret = request.headers.get("X-Sync-Secret","") or \
+                 (request.get_json() or {}).get("secret","")
+    if secret and req_secret != secret:
+        return jsonify({"error": "unauthorized"}), 401
+
+    data    = request.get_json() or {}
+    leads   = data.get("leads", [])
+    if not leads:
+        return jsonify({"imported": 0, "skipped": 0})
+
+    imported = 0
+    skipped  = 0
+    conn = db.get_db()
+    c    = conn.cursor()
+
+    for lead in leads:
+        email = (lead.get("email") or "").strip().lower()
+        # Skip duplicate emails
+        if email:
+            c.execute(db._q("SELECT id FROM leads WHERE LOWER(email)=LOWER(?) LIMIT 1"),
+                      (email,))
+            if c.fetchone():
+                skipped += 1
+                continue
+
+        now = datetime.utcnow().isoformat()
+        fields = {
+            "first_name"            : lead.get("first_name",""),
+            "last_name"             : lead.get("last_name",""),
+            "email"                 : email,
+            "company"               : lead.get("company",""),
+            "title"                 : lead.get("title",""),
+            "phone"                 : lead.get("phone",""),
+            "website"               : lead.get("website",""),
+            "city"                  : lead.get("city",""),
+            "country"               : lead.get("country","Unknown"),
+            "status"                : "New",
+            "priority_score"        : lead.get("priority_score", 0),
+            "outsourcing_likelihood": lead.get("outsourcing_likelihood","Medium"),
+            "pitch_angle"           : lead.get("pitch_angle",""),
+            "linkedin_url"          : lead.get("linkedin_url",""),
+            "description"           : lead.get("description",""),
+            "source"                : lead.get("source","leadgen"),
+            "created_at"            : now,
+            "updated_at"            : now,
+        }
+        cols = ", ".join(fields.keys())
+        ph   = ", ".join(["%s" if db._is_pg() else "?"] * len(fields))
+        try:
+            c.execute(f"INSERT INTO leads ({cols}) VALUES ({ph})",
+                      list(fields.values()))
+            imported += 1
+        except Exception:
+            skipped += 1
+
+    conn.commit()
+    conn.close()
+
+    if imported:
+        try:
+            tm.post_system_message("leads",
+                f"🔄 {imported} new lead(s) synced from LeadGen automatically.", "crm")
+            tm.notify_all("New Leads Synced",
+                f"{imported} lead(s) arrived from Lead Generator",
+                type="lead", link="/leads")
+        except Exception:
+            pass
+
+    return jsonify({"imported": imported, "skipped": skipped})
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
