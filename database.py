@@ -7,15 +7,14 @@ import sqlite3
 from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
-_USE_PG = bool(DATABASE_URL)  # set once at import; never changed by fallback logic
 
 # ── Connection helper ──────────────────────────────────────────────────────────
 
 def _is_pg():
-    return _USE_PG
+    return bool(DATABASE_URL)
 
 def get_db():
-    if _USE_PG:
+    if _is_pg():
         import psycopg2
         import psycopg2.extras
         conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
@@ -61,7 +60,14 @@ def _fetchone(row) -> dict | None:
 # ── Schema ─────────────────────────────────────────────────────────────────────
 
 def init_db():
-    conn = get_db()
+    try:
+        conn = get_db()
+    except Exception as e:
+        import logging
+        logging.warning("DB connection failed, falling back to SQLite: %s", e)
+        global DATABASE_URL
+        DATABASE_URL = ""
+        conn = get_db()
     c = conn.cursor()
 
     if _is_pg():
