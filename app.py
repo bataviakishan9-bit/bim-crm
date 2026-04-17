@@ -3023,8 +3023,8 @@ def team_users_json():
 
 # ── AUTO SYNC RECEIVER (from LeadGen) ─────────────────────────────────────────
 
-@app.route("/api/import-leads", methods=["POST"])
-def api_import_leads():
+@app.route("/api/sync-leads", methods=["POST"])
+def api_sync_leads():
     """Receive leads from BIM LeadGen and insert into CRM."""
     # Verify shared secret
     secret   = os.getenv("SYNC_SECRET", "bim-sync-2025")
