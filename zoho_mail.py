@@ -384,7 +384,7 @@ class ZohoMailClient:
             r = requests.get(
                 f"https://mail.zoho.{dc}/api/accounts/{account_id}/messages/view",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
-                params={"limit": 200, "sortorder": "false"},
+                params={"limit": 100, "sortorder": "false"},
                 timeout=20,
             )
             if r.status_code != 200:
@@ -419,31 +419,33 @@ class ZohoMailClient:
                 is_bounce_subject = any(b in subj_lower for b in BOUNCE_SUBJECTS)
 
                 if is_bounce_sender or is_bounce_subject:
-                    # Fetch full HTML body using correct URL
-                    html_body = ""
-                    if msg_id and folder_id:
-                        html_body = self._get_full_message_body(token, folder_id, msg_id)
-
+                    # Use summary + toAddress first (no extra HTTP call needed)
                     reason, is_permanent, is_delayed = self._parse_dsn_reason(
-                        html_body, summary, subject
+                        "", summary, subject
                     )
 
-                    # Extract all emails from the HTML body
-                    all_emails_in_body = self._extract_emails_from_html(html_body) if html_body else []
-
-                    # Find which lead email is the affected recipient
-                    # Priority: emails from HTML > summary > toAddress
+                    # Find affected lead email from summary or toAddress (fast, no API call)
+                    to_addr = (msg.get("toAddress") or "").lower().strip()
                     affected_email = None
-                    for e in all_emails_in_body:
-                        if e in lead_email_set:
-                            affected_email = e
-                            break
 
+                    # Check toAddress first
+                    if to_addr in lead_email_set:
+                        affected_email = to_addr
+
+                    # Scan summary text
                     if not affected_email:
-                        # Fallback: scan summary text
                         for le in lead_email_set:
                             if le in summary.lower():
                                 affected_email = le
+                                break
+
+                    # Last resort: extract emails from summary using regex
+                    if not affected_email:
+                        import re as _re
+                        for m in _re.finditer(r'[\w.+-]+@[\w.-]+\.\w+', summary):
+                            e = m.group(0).lower()
+                            if e in lead_email_set:
+                                affected_email = e
                                 break
 
                     log.info(
