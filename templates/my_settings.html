@@ -118,75 +118,81 @@
             <i class="bi bi-key me-1"></i> Zoho Mail API Credentials
           </div>
 
+          <!-- ZOHO CONNECTION STATUS + QUICK TOKEN RENEW -->
+          <div class="mb-3 p-3" id="zoho-status-box"
+               style="background:#1a1a1a;border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span style="font-size:12px;font-weight:700;color:#aaa"><i class="bi bi-plug me-1"></i>Zoho Connection</span>
+              <button type="button" class="btn btn-sm" onclick="checkZohoStatus()"
+                      style="background:#272727;color:#e8e8e8;border:1px solid rgba(255,255,255,0.1);font-size:11px;border-radius:6px">
+                <i class="bi bi-arrow-clockwise me-1"></i>Test Now
+              </button>
+            </div>
+            <div id="zoho-status-result" style="font-size:12px;color:#666">Click "Test Now" to check connection…</div>
+          </div>
+
+          <!-- INSTANT TOKEN RENEWAL (no page navigation needed) -->
+          <div class="mb-3 p-3" style="background:#1a2a1a;border-radius:10px;border:1px solid rgba(34,197,94,0.2)">
+            <div style="font-size:12px;font-weight:700;color:#86efac;margin-bottom:8px">
+              <i class="bi bi-arrow-repeat me-1"></i>Renew Zoho Token (do this if emails stop sending)
+            </div>
+            <ol style="font-size:12px;color:#aaa;line-height:2;margin:0 0 10px;padding-left:18px;">
+              <li>Open <a href="https://api-console.zoho.in/" target="_blank" style="color:var(--gold)">api-console.zoho.in</a></li>
+              <li>Click your <strong>Self Client</strong> → <strong>Generate Code</strong></li>
+              <li>Scope: <code style="background:#111;padding:2px 6px;border-radius:4px;font-size:11px">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code></li>
+              <li>Duration: <strong>10 minutes</strong> → click <strong>Create</strong> → copy the code</li>
+              <li>Paste it below and click <strong>Save Token</strong></li>
+            </ol>
+            <div class="input-group input-group-sm">
+              <input type="text" id="quick-auth-code" class="form-control font-monospace"
+                     placeholder="Paste Zoho auth code here…"
+                     style="background:#111;border-color:rgba(255,255,255,0.1);color:#e8e8e8;font-size:12px">
+              <button type="button" class="btn" onclick="exchangeZohoCode()"
+                      style="background:#22c55e;color:#000;font-weight:700;font-size:12px">
+                <i class="bi bi-check2-circle me-1"></i>Save Token
+              </button>
+            </div>
+            <div id="exchange-result" class="mt-2" style="font-size:12px;display:none"></div>
+          </div>
+
           <!-- ZOHO SETUP INSTRUCTIONS -->
-          <div class="mb-3" style="border:1px solid #bbdefb;border-radius:8px;overflow:hidden;">
+          <div class="mb-3" style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;">
             <div style="background:var(--surface2);color:var(--text);padding:10px 16px;font-size:12px;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;align-items:center;"
                  onclick="toggleInstructions(this)">
-              <span><i class="bi bi-book me-2"></i>How to get your Zoho credentials (step-by-step)</span>
+              <span><i class="bi bi-book me-2"></i>How to get your Zoho credentials (first-time setup)</span>
               <i class="bi bi-chevron-down" id="instrChevron"></i>
             </div>
             <div id="zohoInstructions" style="display:none;padding:16px;font-size:12px;line-height:1.9;background:var(--surface2);">
+              <p style="margin:0 0 10px;color:var(--gold);font-weight:700;">You need 3 things from Zoho API Console: Client ID, Client Secret, and a Refresh Token.</p>
 
-              <p style="margin:0 0 10px;color:var(--gold);font-weight:700;">You need 3 things: Client ID, Client Secret, and Refresh Token</p>
-
-              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 1 — Open Zoho API Console</div>
+              <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:14px;margin-bottom:10px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:6px;">STEP 1 — Open Zoho API Console</div>
                 <ol style="margin:0;padding-left:20px;">
-                  <li>Go to <strong>api-console.zoho.in</strong> (India DC) or <strong>api-console.zoho.com</strong> (US DC)</li>
-                  <li>Log in with <strong>your own Zoho Mail account</strong> (the one you send emails from)</li>
-                  <li>Click <strong>"Self Client"</strong> — if you don't see it, click <strong>"+ Add Client"</strong> and choose Self Client</li>
+                  <li>Go to <a href="https://api-console.zoho.in/" target="_blank" style="color:var(--gold)">api-console.zoho.in</a></li>
+                  <li>Log in with the Zoho Mail account you send emails from</li>
+                  <li>Click <strong>Self Client</strong> (or Add Client → Self Client)</li>
                 </ol>
               </div>
 
-              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 2 — Copy Client ID and Client Secret</div>
+              <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:14px;margin-bottom:10px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:6px;">STEP 2 — Copy Client ID and Client Secret</div>
+                <p style="margin:0">Inside your Self Client you will see <strong>Client ID</strong> and <strong>Client Secret</strong> — paste them into the fields below.</p>
+              </div>
+
+              <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:14px;margin-bottom:10px;">
+                <div style="font-weight:700;color:var(--gold);margin-bottom:6px;">STEP 3 — Generate and Exchange the Code (all in this page)</div>
                 <ol style="margin:0;padding-left:20px;">
-                  <li>Once inside your Self Client app, you will see <strong>Client ID</strong> and <strong>Client Secret</strong> displayed</li>
-                  <li>Copy both and paste them into the fields below</li>
+                  <li>Click <strong>Generate Code</strong> → scope: <code style="background:#111;padding:1px 5px;border-radius:3px">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code></li>
+                  <li>Duration: <strong>10 minutes</strong> → Create → copy the code</li>
+                  <li>Paste it in the <em>Renew Zoho Token</em> box above → click <strong>Save Token</strong></li>
+                  <li>The app will exchange it, save everywhere, and confirm. No manual copy-paste needed.</li>
                 </ol>
               </div>
 
-              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 3 — Generate Refresh Token</div>
-                <ol style="margin:0;padding-left:20px;">
-                  <li>Click the <strong>"Generate Code"</strong> tab inside Self Client</li>
-                  <li>In the <strong>Scope</strong> field, paste exactly:<br>
-                    <code style="background:var(--surface3);padding:3px 8px;border-radius:4px;font-size:11px;display:inline-block;margin:4px 0;">ZohoMail.messages.ALL,ZohoMail.accounts.READ</code>
-                  </li>
-                  <li>Set <strong>Time Duration</strong> to <strong>10 minutes</strong></li>
-                  <li>Add a description (e.g. "BIM CRM") — optional</li>
-                  <li>Click <strong>"Create"</strong> — you will see a code appear</li>
-                  <li>Copy that code <strong>immediately</strong> — it expires in 10 minutes</li>
-                </ol>
-              </div>
-
-              <div style="background:var(--surface)border:1px solid #d0e4ff;border-radius:6px;padding:14px;margin-bottom:12px;">
-                <div style="font-weight:700;color:var(--gold);margin-bottom:8px;">STEP 4 — Convert code to Refresh Token</div>
-                <ol style="margin:0;padding-left:20px;">
-                  <li>Run <strong>get_token.py</strong> in your BIM_CRM folder:<br>
-                    <code style="background:var(--surface3);padding:3px 8px;border-radius:4px;font-size:11px;">python get_token.py</code>
-                  </li>
-                  <li>Paste the code when prompted</li>
-                  <li>The script will print your new <strong>Refresh Token</strong> and save it to .env</li>
-                  <li>Copy the Refresh Token and paste it into the field below</li>
-                </ol>
-              </div>
-
-              <div style="background:rgba(255,193,7,0.12);border:1px solid rgba(255,193,7,0.3);border-radius:6px;padding:12px;">
-                <div style="font-weight:700;color:#856404;margin-bottom:6px;"><i class="bi bi-exclamation-triangle me-1"></i>Also update Render</div>
-                <ol style="margin:0;padding-left:20px;color:#856404;">
-                  <li>Go to <strong>dashboard.render.com</strong> → your bim-crm service → <strong>Environment</strong> tab</li>
-                  <li>Update <strong>ZOHO_REFRESH_TOKEN</strong> with the new token</li>
-                  <li>Also add/update <strong>ZOHO_CLIENT_ID</strong>, <strong>ZOHO_CLIENT_SECRET</strong>, <strong>ZOHO_MAIL_ACCOUNT_ID</strong></li>
-                  <li>Click <strong>Save Changes</strong> — service will redeploy automatically</li>
-                </ol>
-              </div>
-
-              <div style="margin-top:12px;padding:10px 14px;background:rgba(76,175,80,0.12);border-radius:6px;color:var(--gold);font-size:11px;">
+              <div style="padding:10px 14px;background:rgba(76,175,80,0.12);border-radius:6px;color:var(--gold);font-size:11px;">
                 <i class="bi bi-info-circle me-1"></i>
-                <strong>Where is Account ID?</strong> — Log into Zoho Mail → Settings (gear icon) → Developer Space / API → your Account ID is shown there (a long number like 277444000000002002).
+                <strong>Account ID:</strong> Zoho Mail → Settings (gear) → Developer Space / API → shows a long number like 277444000000002002.
               </div>
-
             </div>
           </div>
 
@@ -211,7 +217,9 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Refresh Token</label>
+            <label class="form-label" style="font-size:12px;font-weight:600;">Zoho Refresh Token
+              <span style="font-weight:400;color:#666;font-size:11px">(auto-filled when you use Renew above)</span>
+            </label>
             <div class="input-group input-group-sm">
               <input type="password" name="zoho_refresh_token" id="tokenField"
                      class="form-control font-monospace"
@@ -354,6 +362,62 @@ function toggleInstructions(header) {
     chevron.className  = 'bi bi-chevron-down';
   }
 }
+
+function checkZohoStatus() {
+  const box = document.getElementById('zoho-status-result');
+  box.innerHTML = '<span style="color:#888">Checking…</span>';
+  fetch('/api/zoho-test')
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        box.innerHTML = `<span style="color:#22c55e"><i class="bi bi-check-circle-fill me-1"></i>
+          Connected — ${d.accounts} account(s) found. Token: ${d.token}</span>
+          <span class="ms-3" style="color:#666;font-size:11px">
+            Sources: DB=${d.token_sources.db?'✓':'✗'}
+            Env=${d.token_sources.env_var?'✓':'✗'}
+            Settings=${d.token_sources.user_settings?'✓':'✗'}
+            In-sync=${d.token_sources.in_sync?'✓':'✗'}
+          </span>`;
+      } else {
+        box.innerHTML = `<span style="color:#ef4444"><i class="bi bi-x-circle-fill me-1"></i>
+          ${d.error || 'Connection failed'}</span>
+          <span class="ms-2" style="color:#888;font-size:11px">→ Use the Renew box above to fix this.</span>`;
+      }
+    })
+    .catch(e => { box.innerHTML = `<span style="color:#ef4444">Request failed: ${e}</span>`; });
+}
+
+function exchangeZohoCode() {
+  const code = document.getElementById('quick-auth-code').value.trim();
+  const res  = document.getElementById('exchange-result');
+  if (!code) { res.style.display='block'; res.innerHTML='<span style="color:#f59e0b">Paste the auth code first.</span>'; return; }
+  res.style.display = 'block';
+  res.innerHTML = '<span style="color:#888">Exchanging code with Zoho…</span>';
+  fetch('/api/zoho-exchange-code', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({auth_code: code})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      res.innerHTML = `<span style="color:#22c55e"><i class="bi bi-check-circle-fill me-1"></i>
+        Token saved everywhere! Preview: <code>${d.token_preview}</code>
+        — emails will now work immediately.</span>`;
+      document.getElementById('quick-auth-code').value = '';
+      // update the hidden token field so the form save also keeps it
+      const tf = document.getElementById('tokenField');
+      if (tf) tf.value = '(updated — use Renew to change again)';
+      setTimeout(checkZohoStatus, 1500);
+    } else {
+      res.innerHTML = `<span style="color:#ef4444"><i class="bi bi-x-circle-fill me-1"></i>${d.error}</span>`;
+    }
+  })
+  .catch(e => { res.innerHTML = `<span style="color:#ef4444">Request failed: ${e}</span>`; });
+}
+
+// Auto-check on load
+document.addEventListener('DOMContentLoaded', checkZohoStatus);
 </script>
 
 {% endblock %}

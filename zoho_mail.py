@@ -11,11 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 log = logging.getLogger(__name__)
 
-ZOHO_CLIENT_ID     = os.getenv("ZOHO_CLIENT_ID")
-ZOHO_CLIENT_SECRET = os.getenv("ZOHO_CLIENT_SECRET")
-ZOHO_REFRESH_TOKEN = os.getenv("ZOHO_REFRESH_TOKEN")
-ZOHO_DC            = os.getenv("ZOHO_DC", "in")
-ZOHO_ACCOUNT_ID    = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "")
+def _zoho_dc():      return os.getenv("ZOHO_DC", "in")
+def _zoho_acct_id(): return os.getenv("ZOHO_MAIL_ACCOUNT_ID", "")
 SENDER_EMAIL       = "kishan.batavia@biminfrasolutions.in"
 SENDER_NAME        = "Kishan Batavia — BIM Infra Solutions"
 CALENDLY_LINK      = "https://calendly.com/kishanbatavia9/30min"
@@ -40,19 +37,27 @@ class ZohoMailClient:
         return self._access_token
 
     def _refresh_token(self):
-        # DB takes priority over env var — allows in-app token updates to survive redeploys
-        try:
-            import database as _db
-            db_token = _db.get_config("ZOHO_REFRESH_TOKEN")
-            if db_token:
-                os.environ["ZOHO_REFRESH_TOKEN"] = db_token
-        except Exception:
-            pass
-        load_dotenv(override=True)
+        # Resolution order: DB (survives redeploys) → env var (Render config)
+        # IMPORTANT: do NOT call load_dotenv here — it would override the DB value
         client_id     = os.getenv("ZOHO_CLIENT_ID")
         client_secret = os.getenv("ZOHO_CLIENT_SECRET")
-        refresh_token = os.getenv("ZOHO_REFRESH_TOKEN")
         dc            = os.getenv("ZOHO_DC", "in")
+
+        # DB takes priority for refresh_token so in-app updates persist across deploys
+        refresh_token = None
+        try:
+            import database as _db
+            refresh_token = _db.get_config("ZOHO_REFRESH_TOKEN") or None
+        except Exception:
+            pass
+        if not refresh_token:
+            refresh_token = os.getenv("ZOHO_REFRESH_TOKEN")
+
+        if not client_id or not client_secret or not refresh_token:
+            raise Exception(
+                "Zoho credentials missing. Set ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, "
+                "ZOHO_REFRESH_TOKEN in Render env vars or via Settings → My Settings."
+            )
 
         url = f"https://accounts.zoho.{dc}/oauth/v2/token"
         r = requests.post(url, params={
@@ -67,7 +72,7 @@ class ZohoMailClient:
             raise Exception(f"Token refresh failed: {data}")
         self._access_token = data["access_token"]
         self._token_expiry = time.time() + data.get("expires_in", 3600)
-        log.info("Zoho Mail access token refreshed.")
+        log.info("Zoho Mail access token refreshed OK.")
 
     def _get_token_for(self, client_id: str, client_secret: str, refresh_token: str, dc: str) -> str:
         """Get access token using specific credentials (per-user support)."""
@@ -115,9 +120,18 @@ class ZohoMailClient:
         s = user_settings or {}
         client_id     = s.get("zoho_client_id")     or os.getenv("ZOHO_CLIENT_ID")
         client_secret = s.get("zoho_client_secret") or os.getenv("ZOHO_CLIENT_SECRET")
-        refresh_token = s.get("zoho_refresh_token") or os.getenv("ZOHO_REFRESH_TOKEN")
         account_id    = s.get("zoho_account_id")    or os.getenv("ZOHO_MAIL_ACCOUNT_ID", "")
         dc            = s.get("zoho_dc")            or os.getenv("ZOHO_DC", "in")
+        # Refresh token: user_settings → DB (app_config) → env var
+        refresh_token = s.get("zoho_refresh_token") or None
+        if not refresh_token:
+            try:
+                import database as _db
+                refresh_token = _db.get_config("ZOHO_REFRESH_TOKEN") or None
+            except Exception:
+                pass
+        if not refresh_token:
+            refresh_token = os.getenv("ZOHO_REFRESH_TOKEN")
         sender_email  = s.get("sender_email")       or SENDER_EMAIL
         sender_name   = s.get("sender_name")        or SENDER_NAME
 
@@ -197,12 +211,14 @@ class ZohoMailClient:
         Fetch recent inbox emails from Zoho Mail.
         Returns list of reply dicts matching known lead emails.
         """
-        if not ZOHO_ACCOUNT_ID:
+        acct_id = _zoho_acct_id()
+        dc      = _zoho_dc()
+        if not acct_id:
             return []
         try:
             token = self.get_access_token()
             r = requests.get(
-                f"https://mail.zoho.{ZOHO_DC}/api/accounts/{ZOHO_ACCOUNT_ID}/messages/view",
+                f"https://mail.zoho.{dc}/api/accounts/{acct_id}/messages/view",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
                 params={"folderId": "inbox", "limit": 50, "sortorder": "false"},
                 timeout=15,
@@ -229,10 +245,10 @@ class ZohoMailClient:
             return []
 
     def _get_full_message_body(self, token: str, folder_id: str, message_id: str) -> str:
-        """Fetch the full HTML body of a message. Correct URL: /folders/{fid}/messages/{mid}/content"""
+        """Fetch the full HTML body of a message."""
         try:
             r = requests.get(
-                f"https://mail.zoho.{ZOHO_DC}/api/accounts/{ZOHO_ACCOUNT_ID}"
+                f"https://mail.zoho.{_zoho_dc()}/api/accounts/{_zoho_acct_id()}"
                 f"/folders/{folder_id}/messages/{message_id}/content",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
                 timeout=10,
@@ -340,7 +356,7 @@ class ZohoMailClient:
           "new_msg_ids": {type: [ids]}   — for saving to DB after processing
         }
         """
-        if not ZOHO_ACCOUNT_ID:
+        if not _zoho_acct_id():
             return {"bounced": [], "replied": [], "ooo": [], "new_msg_ids": {}}
 
         if already_synced is None:
@@ -367,8 +383,8 @@ class ZohoMailClient:
             result = {"bounced": [], "replied": [], "ooo": [], "new_msg_ids": {"bounce": [], "reply": [], "ooo": []}}
 
             # ── Auto-detect correct account ID ────────────────────────
-            account_id = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "") or ZOHO_ACCOUNT_ID
-            dc = os.getenv("ZOHO_DC", ZOHO_DC)
+            account_id = _zoho_acct_id()
+            dc = _zoho_dc()
             acct_r = requests.get(
                 f"https://mail.zoho.{dc}/api/accounts",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
@@ -507,7 +523,7 @@ class ZohoMailClient:
         try:
             token = self.get_access_token()
             r = requests.get(
-                f"https://mail.zoho.{ZOHO_DC}/api/accounts",
+                f"https://mail.zoho.{_zoho_dc()}/api/accounts",
                 headers={"Authorization": f"Zoho-oauthtoken {token}"},
                 timeout=10,
             )

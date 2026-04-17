@@ -1422,6 +1422,71 @@ def my_settings():
     return render_template("my_settings.html", cfg=cfg)
 
 
+@app.route("/api/zoho-test")
+@login_required
+def api_zoho_test():
+    """Return Zoho connection status as JSON — no email sent."""
+    result = mail_client.test_connection()
+    # Also report where the token came from
+    db_token  = db.get_config("ZOHO_REFRESH_TOKEN")
+    env_token = os.getenv("ZOHO_REFRESH_TOKEN", "")
+    user_cfg  = db.get_user_settings(current_user.username) or {}
+    us_token  = user_cfg.get("zoho_refresh_token", "")
+    result["token_sources"] = {
+        "db"           : bool(db_token),
+        "env_var"      : bool(env_token),
+        "user_settings": bool(us_token),
+        "in_sync"      : (db_token == env_token == us_token) if db_token else False,
+    }
+    result["account_id"] = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "not set")
+    result["dc"]         = os.getenv("ZOHO_DC", "in")
+    return jsonify(result)
+
+
+@app.route("/api/zoho-exchange-code", methods=["POST"])
+@login_required
+def api_zoho_exchange_code():
+    """Exchange a Zoho auth code for a refresh token (AJAX, called from My Settings)."""
+    import requests as _req
+    data      = request.get_json() or {}
+    auth_code = (data.get("auth_code") or "").strip()
+    if not auth_code:
+        return jsonify({"ok": False, "error": "No auth code provided."})
+
+    client_id     = os.getenv("ZOHO_CLIENT_ID")
+    client_secret = os.getenv("ZOHO_CLIENT_SECRET")
+    dc            = os.getenv("ZOHO_DC", "in")
+
+    if not client_id or not client_secret:
+        return jsonify({"ok": False,
+                        "error": "ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET missing from Render env vars."})
+    try:
+        resp = _req.post(
+            f"https://accounts.zoho.{dc}/oauth/v2/token",
+            params={
+                "grant_type"   : "authorization_code",
+                "client_id"    : client_id,
+                "client_secret": client_secret,
+                "code"         : auth_code,
+            },
+            timeout=15,
+        )
+        result = resp.json()
+        if "refresh_token" not in result:
+            err = result.get("error_description") or result.get("error") or str(result)
+            return jsonify({"ok": False, "error": f"Zoho error: {err}"})
+
+        new_token = result["refresh_token"]
+        db.set_config("ZOHO_REFRESH_TOKEN", new_token)
+        os.environ["ZOHO_REFRESH_TOKEN"] = new_token
+        mail_client._token_expiry = 0
+        _sync_global_token_to_user_settings(new_token)
+        _update_render_env("ZOHO_REFRESH_TOKEN", new_token)
+        return jsonify({"ok": True, "token_preview": new_token[:20] + "..."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)})
+
+
 @app.route("/test-send-email")
 @login_required
 def test_send_email():
@@ -2938,13 +3003,13 @@ def admin_import_sqlite():
 @app.route("/admin/update-zoho-token", methods=["GET", "POST"])
 @login_required
 def admin_update_zoho_token():
-    """Admin-only page to exchange a Zoho auth code for a new refresh token."""
+    """Exchange a Zoho auth code for a refresh token and save everywhere it's needed."""
     if current_user.username != "kishan":
         flash("Admin only.", "danger")
         return redirect(url_for("dashboard"))
 
     new_token = None
-    error = None
+    error     = None
 
     if request.method == "POST":
         import requests as _req
@@ -2952,70 +3017,102 @@ def admin_update_zoho_token():
         if not auth_code:
             error = "Paste the authorization code from Zoho API Console."
         else:
-            client_id     = os.getenv("ZOHO_CLIENT_ID", "1000.V1GB0ZULJ3A8J68N57IQSOPU5P6N0P")
-            client_secret = os.getenv("ZOHO_CLIENT_SECRET", "74371811950b55ccbf5ab82fa31bdfd75168b6c183")
+            client_id     = os.getenv("ZOHO_CLIENT_ID")
+            client_secret = os.getenv("ZOHO_CLIENT_SECRET")
             dc            = os.getenv("ZOHO_DC", "in")
-            try:
-                resp = _req.post(
-                    f"https://accounts.zoho.{dc}/oauth/v2/token",
-                    params={
-                        "grant_type"   : "authorization_code",
-                        "client_id"    : client_id,
-                        "client_secret": client_secret,
-                        "code"         : auth_code,
-                    },
-                    timeout=15,
-                )
-                data = resp.json()
-                if "refresh_token" in data:
-                    new_token = data["refresh_token"]
-                    # 1. Save to database — persists across all redeploys
-                    db.set_config("ZOHO_REFRESH_TOKEN", new_token)
-                    # 2. Update in-memory immediately — current process picks it up now
-                    os.environ["ZOHO_REFRESH_TOKEN"] = new_token
-                    # 3. Also try to update Render env var if API key is configured
-                    render_key = os.getenv("RENDER_API_KEY", "")
-                    render_svc = os.getenv("RENDER_SERVICE_ID", "srv-d7e9jc4vikkc73ek6v50")
-                    if render_key:
-                        try:
-                            # Fetch current env vars first
-                            ev_resp = _req.get(
-                                f"https://api.render.com/v1/services/{render_svc}/env-vars",
-                                headers={"Authorization": f"Bearer {render_key}"},
-                                timeout=10,
-                            )
-                            env_vars = ev_resp.json() if ev_resp.status_code == 200 else []
-                            # Build updated list
-                            updated = []
-                            found = False
-                            for ev in env_vars:
-                                if ev.get("envVar", {}).get("key") == "ZOHO_REFRESH_TOKEN":
-                                    updated.append({"key": "ZOHO_REFRESH_TOKEN", "value": new_token})
-                                    found = True
-                                else:
-                                    k = ev.get("envVar", {}).get("key", "")
-                                    v = ev.get("envVar", {}).get("value", "")
-                                    if k:
-                                        updated.append({"key": k, "value": v})
-                            if not found:
-                                updated.append({"key": "ZOHO_REFRESH_TOKEN", "value": new_token})
-                            _req.put(
-                                f"https://api.render.com/v1/services/{render_svc}/env-vars",
-                                headers={"Authorization": f"Bearer {render_key}",
-                                         "Content-Type": "application/json"},
-                                json=updated,
-                                timeout=10,
-                            )
-                        except Exception:
-                            pass  # Render update is best-effort
-                    flash("New Zoho refresh token saved! App is now using it.", "success")
-                else:
-                    err_desc = data.get("error", "") or data.get("error_description", "") or str(data)
-                    error = f"Zoho rejected the code: {err_desc}. Each code works once and expires in 10 min."
-            except Exception as exc:
-                error = f"Request failed: {exc}"
+            if not client_id or not client_secret:
+                error = "ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET are not set in Render env vars."
+            else:
+                try:
+                    resp = _req.post(
+                        f"https://accounts.zoho.{dc}/oauth/v2/token",
+                        params={
+                            "grant_type"   : "authorization_code",
+                            "client_id"    : client_id,
+                            "client_secret": client_secret,
+                            "code"         : auth_code,
+                        },
+                        timeout=15,
+                    )
+                    data = resp.json()
+                    if "refresh_token" in data:
+                        new_token = data["refresh_token"]
+
+                        # 1. DB — survives all redeploys, read-first by _refresh_token()
+                        db.set_config("ZOHO_REFRESH_TOKEN", new_token)
+
+                        # 2. In-process env — current worker uses it immediately
+                        os.environ["ZOHO_REFRESH_TOKEN"] = new_token
+
+                        # 3. Force mail_client to re-fetch access token on next call
+                        mail_client._token_expiry = 0
+
+                        # 4. user_settings for "kishan" — used by send_email()
+                        _sync_global_token_to_user_settings(new_token)
+
+                        # 5. Render env var — survives fresh deploys (best-effort)
+                        _update_render_env("ZOHO_REFRESH_TOKEN", new_token)
+
+                        flash("New Zoho refresh token saved in DB, memory, user settings "
+                              "and Render env var. All systems now use the new token.", "success")
+                    else:
+                        err_desc = (data.get("error_description")
+                                    or data.get("error") or str(data))
+                        error = f"Zoho rejected the code: {err_desc}. Each code works once and expires in 10 min."
+                except Exception as exc:
+                    error = f"Request failed: {exc}"
 
     return render_template("admin_zoho_token.html", new_token=new_token, error=error)
+
+
+def _sync_global_token_to_user_settings(new_token: str):
+    """Copy the global refresh token into kishan's user_settings row."""
+    try:
+        cfg = db.get_user_settings("kishan") or {}
+        cfg["zoho_refresh_token"] = new_token
+        # Keep other fields intact
+        for k in ("sender_email","sender_name","zoho_client_id","zoho_client_secret",
+                  "zoho_dc","zoho_account_id","is_locked","wa_phone","callmebot_api_key"):
+            cfg.setdefault(k, "")
+        db.save_user_settings("kishan", cfg)
+    except Exception as e:
+        log.warning("Could not sync token to user_settings: %s", e)
+
+
+def _update_render_env(key: str, value: str):
+    """Best-effort update of a single Render env var without triggering a redeploy."""
+    import requests as _req
+    render_key = os.getenv("RENDER_API_KEY", "")
+    render_svc = os.getenv("RENDER_SERVICE_ID", "srv-d7e9jc4vikkc73ek6v50")
+    if not render_key:
+        return
+    try:
+        ev_resp = _req.get(
+            f"https://api.render.com/v1/services/{render_svc}/env-vars",
+            headers={"Authorization": f"Bearer {render_key}"},
+            timeout=10,
+        )
+        env_vars = ev_resp.json() if ev_resp.status_code == 200 else []
+        updated  = []
+        found    = False
+        for ev in env_vars:
+            k = ev.get("envVar", {}).get("key", "")
+            v = ev.get("envVar", {}).get("value", "")
+            if k == key:
+                updated.append({"key": key, "value": value})
+                found = True
+            elif k:
+                updated.append({"key": k, "value": v})
+        if not found:
+            updated.append({"key": key, "value": value})
+        _req.put(
+            f"https://api.render.com/v1/services/{render_svc}/env-vars",
+            headers={"Authorization": f"Bearer {render_key}", "Content-Type": "application/json"},
+            json=updated, timeout=10,
+        )
+        log.info("Render env var %s updated.", key)
+    except Exception as e:
+        log.warning("Render env update failed: %s", e)
 
 
 # ── BACKGROUND SCHEDULER — auto-sync Zoho every 30 min ────────────────────────
@@ -3035,14 +3132,45 @@ def _scheduler_sync():
             _log.getLogger(__name__).warning("Auto-sync failed: %s", exc)
 
 
+def _scheduler_token_health():
+    """Every 6 hours: verify Zoho access token refreshes correctly.
+    If it fails, notify the team via chat so someone renews it before emails break."""
+    with app.app_context():
+        try:
+            result = mail_client.test_connection()
+            if not result.get("ok"):
+                err = result.get("error", "unknown error")
+                log.error("Zoho token health check FAILED: %s", err)
+                try:
+                    tm.post_system_message(
+                        "alerts",
+                        f"⚠️ Zoho Mail token is broken: {err}. "
+                        f"Go to Settings → My Settings → Renew Zoho Token to fix it.",
+                        "crm"
+                    )
+                    tm.notify_all(
+                        "Zoho Token Broken",
+                        f"Emails cannot be sent. Renew token in My Settings.",
+                        type="alert", link="/my-settings"
+                    )
+                except Exception:
+                    pass
+            else:
+                log.info("Zoho token health check OK.")
+        except Exception as exc:
+            log.warning("Token health check error: %s", exc)
+
+
 try:
     from apscheduler.schedulers.background import BackgroundScheduler
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(_scheduler_sync, "interval", minutes=30, id="zoho_auto_sync",
                        max_instances=1, misfire_grace_time=60)
+    _scheduler.add_job(_scheduler_token_health, "interval", hours=6, id="zoho_token_health",
+                       max_instances=1, misfire_grace_time=300)
     _scheduler.start()
     import logging as _log
-    _log.getLogger(__name__).info("Zoho auto-sync scheduler started (every 30 min)")
+    _log.getLogger(__name__).info("Scheduler started: Zoho auto-sync every 30 min, token health every 6 h")
 except Exception as _sched_err:
     import logging as _log
     _log.getLogger(__name__).warning("Scheduler not started: %s", _sched_err)
