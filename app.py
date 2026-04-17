@@ -969,6 +969,154 @@ def import_leads():
     return render_template("import.html")
 
 
+# ── PROMPT GENERATOR ──────────────────────────────────────────────────────────
+
+@app.route("/prompt-generator")
+@login_required
+def prompt_generator():
+    return render_template("prompt_generator.html",
+                           import_result=None, import_error=None)
+
+
+@app.route("/prompt-generator/upload", methods=["POST"])
+@login_required
+def prompt_generator_upload():
+    """Import AI-generated Excel from Prompt Generator page."""
+    import io as _io
+    file = request.files.get("excel_file")
+    if not file:
+        return render_template("prompt_generator.html",
+                               import_result=None, import_error="No file selected.")
+    try:
+        from openpyxl import load_workbook
+        import csv as _csv
+
+        content  = file.read()
+        filename = (file.filename or "").lower()
+
+        if filename.endswith(".csv"):
+            rows = list(_csv.reader(content.decode("utf-8-sig").splitlines()))
+        else:
+            wb   = load_workbook(_io.BytesIO(content))
+            ws   = wb.active
+            rows = [list(r) for r in ws.iter_rows(values_only=True)]
+
+        # Find header row
+        hdr_idx = 0
+        for i, r in enumerate(rows):
+            vals = [str(v).strip().lower() for v in r if v]
+            if any(k in vals for k in ("email", "company", "company name")):
+                hdr_idx = i
+                break
+
+        headers = [str(c).strip().lower().replace(" ","_") if c else "" for c in rows[hdr_idx]]
+
+        ALIASES = {
+            "company_name": "company", "first_name": "first_name", "fname": "first_name",
+            "last_name": "last_name", "lname": "last_name", "surname": "last_name",
+            "job_title": "title", "position": "title", "role": "title",
+            "email_address": "email", "e-mail": "email",
+            "phone_number": "phone", "telephone": "phone", "mobile": "phone",
+            "website_url": "website", "url": "website",
+            "linkedin": "linkedin_url", "linkedin_profile": "linkedin_url",
+            "notes": "description", "note": "description", "comments": "description",
+            "location": "city",
+        }
+        norm = [ALIASES.get(h, h) for h in headers]
+
+        def col(row_vals, name):
+            try:
+                idx = norm.index(name)
+                v   = row_vals[idx]
+                return str(v).strip() if v not in (None, "") else ""
+            except (ValueError, IndexError):
+                return ""
+
+        imported = skipped = 0
+        for row_vals in rows[hdr_idx + 1:]:
+            if not any(row_vals):
+                continue
+            try:
+                company = col(row_vals, "company")
+                email   = col(row_vals, "email").lower()
+                # Need at least company or email
+                if not company and not email:
+                    skipped += 1
+                    continue
+                # Skip obvious "research needed" placeholders
+                if "research" in email or "@" not in email:
+                    email = ""
+
+                first = col(row_vals, "first_name")
+                last  = col(row_vals, "last_name")
+                if not first and not last:
+                    # fallback: split "Name" column
+                    name_col = col(row_vals, "name") or col(row_vals, "contact_name") or ""
+                    parts = name_col.split()
+                    first = parts[0] if parts else "Unknown"
+                    last  = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+                data = {
+                    "first_name"            : first or "Unknown",
+                    "last_name"             : last or "",
+                    "email"                 : email,
+                    "company"               : company,
+                    "title"                 : col(row_vals, "title"),
+                    "phone"                 : col(row_vals, "phone"),
+                    "website"               : col(row_vals, "website"),
+                    "city"                  : col(row_vals, "city"),
+                    "country"               : col(row_vals, "country") or "Unknown",
+                    "status"                : "New",
+                    "linkedin_url"          : col(row_vals, "linkedin_url"),
+                    "description"           : col(row_vals, "description"),
+                    "source"                : "ai_prompt",
+                    "follow_up_stage"       : "",
+                    "outsourcing_likelihood": "Medium",
+                }
+                db.create_lead(data)
+                imported += 1
+            except Exception:
+                skipped += 1
+
+        return render_template("prompt_generator.html",
+                               import_result={"imported": imported, "skipped": skipped},
+                               import_error=None)
+    except Exception as e:
+        return render_template("prompt_generator.html",
+                               import_result=None, import_error=str(e))
+
+
+@app.route("/prompt-generator/template")
+@login_required
+def prompt_generator_template():
+    """Download a blank Excel template for AI lead results."""
+    import io as _io
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font, Alignment
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "AI Leads"
+    headers = ["Company Name","First Name","Last Name","Job Title","Email",
+               "Phone","Website","City","Country","LinkedIn URL","Notes"]
+    gold_fill = PatternFill("solid", fgColor="D4A017")
+    bold_font = Font(bold=True, color="000000")
+    for ci, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.fill = gold_fill
+        cell.font = bold_font
+        cell.alignment = Alignment(horizontal="center")
+        ws.column_dimensions[cell.column_letter].width = 18
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    from flask import send_file
+    return send_file(buf, as_attachment=True,
+                     download_name="bim_ai_leads_template.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 # ── SETTINGS ───────────────────────────────────────────────────────────────────
 
 @app.route("/settings")
