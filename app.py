@@ -653,31 +653,18 @@ def replies():
                            active_priority=priority)
 
 
-@app.route("/replies/sync-delivery")
-@login_required
-def sync_delivery():
-    """Scan Zoho inbox for bounces, OOO, and replies. Auto-mark leads.
-    Uses message-ID deduplication — each Zoho message is processed exactly once.
-    """
-    all_leads   = db.get_all_leads()
-    lead_map    = {l["email"].lower(): l for l in all_leads}
-    lead_emails = list(lead_map.keys())
-
-    # Load already-processed message IDs so we never double-count
+def _run_zoho_sync():
+    """Core sync logic — runs both from the manual route and the background scheduler."""
+    import logging as _log
+    all_leads      = db.get_all_leads()
+    lead_map       = {l["email"].lower(): l for l in all_leads}
+    lead_emails    = list(lead_map.keys())
     already_synced = db.get_synced_message_ids()
 
-    try:
-        status = mail_client.fetch_delivery_status(lead_emails, already_synced=already_synced)
-    except Exception as e:
-        flash(f"Zoho scan failed: {e}", "danger")
-        return redirect(url_for("replies"))
+    status = mail_client.fetch_delivery_status(lead_emails, already_synced=already_synced)
 
-    bounced_count = 0
-    replied_count = 0
-    ooo_count     = 0
-    delayed_count = 0
+    bounced_count = replied_count = ooo_count = delayed_count = 0
 
-    # ── Handle bounces / delivery failures ───────────────────────────
     for b in status.get("bounced", []):
         email = b.get("email")
         if not email:
@@ -685,90 +672,80 @@ def sync_delivery():
         lead = lead_map.get(email)
         if not lead:
             continue
-
         is_delayed   = b.get("is_delayed", False)
         is_permanent = b.get("is_permanent", True)
         reason       = b.get("reason", "Delivery failure")
         raw_sender   = b.get("raw_sender", "")
         subject_line = b.get("subject", "")
-
         if is_delayed and not is_permanent:
-            db.add_reply(
-                lead_id    = lead["id"],
-                from_email = raw_sender,
-                subject    = f"⏳ DELAYED: {subject_line}",
-                body       = reason,
-                priority   = "Medium",
-                source     = "Zoho Auto-Sync",
-            )
+            db.add_reply(lead_id=lead["id"], from_email=raw_sender,
+                         subject=f"⏳ DELAYED: {subject_line}", body=reason,
+                         priority="Medium", source="Zoho Auto-Sync")
             delayed_count += 1
         else:
             logs = db.get_email_logs(lead["id"])
             if logs:
                 db.mark_email_bounced(logs[0]["id"], reason)
             db.update_lead_status(lead["id"], "Invalid")
-            db.add_reply(
-                lead_id    = lead["id"],
-                from_email = raw_sender,
-                subject    = f"❌ BOUNCE: {subject_line}",
-                body       = reason,
-                priority   = "High",
-                source     = "Zoho Auto-Sync",
-            )
+            db.add_reply(lead_id=lead["id"], from_email=raw_sender,
+                         subject=f"❌ BOUNCE: {subject_line}", body=reason,
+                         priority="High", source="Zoho Auto-Sync")
             bounced_count += 1
 
-    # ── Handle real replies ───────────────────────────────────────────
     for rp in status.get("replied", []):
         lead = lead_map.get(rp["email"])
         if not lead:
             continue
         score = lead.get("priority_score", 0)
         auto_priority = "High" if score >= 80 else "Medium" if score >= 50 else "Low"
-        db.add_reply(
-            lead_id    = lead["id"],
-            from_email = rp["email"],
-            subject    = rp["subject"],
-            body       = rp["body"],
-            priority   = auto_priority,
-            source     = "Zoho Auto-Sync",
-        )
+        db.add_reply(lead_id=lead["id"], from_email=rp["email"],
+                     subject=rp["subject"], body=rp["body"],
+                     priority=auto_priority, source="Zoho Auto-Sync")
         db.update_lead_status(lead["id"], "Engaged")
-        db.create_task(
-            lead["id"],
-            f"Reply received — respond to {lead['first_name']} within 1 hour",
-            (datetime.utcnow() + timedelta(hours=1)).isoformat(),
-            priority="High",
-        )
+        db.create_task(lead["id"],
+                       f"Reply received — respond to {lead['first_name']} within 1 hour",
+                       (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                       priority="High")
         replied_count += 1
 
-    # ── Handle OOO ────────────────────────────────────────────────────
     for o in status.get("ooo", []):
         lead = lead_map.get(o["email"])
         if not lead:
             continue
-        db.add_reply(
-            lead_id    = lead["id"],
-            from_email = o["email"],
-            subject    = f"OOO: {o['subject']}",
-            body       = "Out of office auto-reply received.",
-            priority   = "Low",
-            source     = "Zoho Auto-Sync",
-        )
+        db.add_reply(lead_id=lead["id"], from_email=o["email"],
+                     subject=f"OOO: {o['subject']}",
+                     body="Out of office auto-reply received.",
+                     priority="Low", source="Zoho Auto-Sync")
         db.update_lead_status(lead["id"], "Warm")
         ooo_count += 1
 
-    # ── Persist processed message IDs so they're never re-processed ──
     new_ids = status.get("new_msg_ids", {})
     db.mark_messages_synced(new_ids.get("bounce", []), "bounce")
-    db.mark_messages_synced(new_ids.get("reply", []),  "reply")
-    db.mark_messages_synced(new_ids.get("ooo", []),    "ooo")
+    db.mark_messages_synced(new_ids.get("reply",  []), "reply")
+    db.mark_messages_synced(new_ids.get("ooo",    []), "ooo")
 
-    # Surface any API-level error from Zoho
+    total = bounced_count + delayed_count + replied_count + ooo_count
+    _log.getLogger(__name__).info(
+        "Zoho sync: %d bounces, %d delayed, %d replies, %d OOO",
+        bounced_count, delayed_count, replied_count, ooo_count
+    )
+    return status, bounced_count, delayed_count, replied_count, ooo_count, total
+
+
+@app.route("/replies/sync-delivery")
+@login_required
+def sync_delivery():
+    """Manual trigger: scan Zoho inbox for bounces, OOO, and replies."""
+    try:
+        status, bounced_count, delayed_count, replied_count, ooo_count, total = _run_zoho_sync()
+    except Exception as e:
+        flash(f"Zoho scan failed: {e}", "danger")
+        return redirect(url_for("replies"))
+
     if status.get("_error"):
         flash(f"Zoho API error: {status['_error']}", "danger")
         return redirect(url_for("replies"))
 
-    total = bounced_count + delayed_count + replied_count + ooo_count
     parts = []
     if bounced_count:  parts.append(f"{bounced_count} hard bounce(s)")
     if delayed_count:  parts.append(f"{delayed_count} delayed (temporary)")
@@ -2859,6 +2836,36 @@ def admin_update_zoho_token():
                 error = f"Request failed: {exc}"
 
     return render_template("admin_zoho_token.html", new_token=new_token, error=error)
+
+
+# ── BACKGROUND SCHEDULER — auto-sync Zoho every 30 min ────────────────────────
+
+def _scheduler_sync():
+    """Background job: run Zoho sync inside app context."""
+    with app.app_context():
+        try:
+            _, b, d, r, o, total = _run_zoho_sync()
+            if total:
+                import logging as _log
+                _log.getLogger(__name__).info(
+                    "Auto-sync found: %d bounces %d delayed %d replies %d OOO", b, d, r, o
+                )
+        except Exception as exc:
+            import logging as _log
+            _log.getLogger(__name__).warning("Auto-sync failed: %s", exc)
+
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    _scheduler = BackgroundScheduler(daemon=True)
+    _scheduler.add_job(_scheduler_sync, "interval", minutes=30, id="zoho_auto_sync",
+                       max_instances=1, misfire_grace_time=60)
+    _scheduler.start()
+    import logging as _log
+    _log.getLogger(__name__).info("Zoho auto-sync scheduler started (every 30 min)")
+except Exception as _sched_err:
+    import logging as _log
+    _log.getLogger(__name__).warning("Scheduler not started: %s", _sched_err)
 
 
 # ── ENTRY POINT ────────────────────────────────────────────────────────────────
