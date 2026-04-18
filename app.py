@@ -26,12 +26,19 @@ try:
 except Exception as _te:
     import logging; logging.getLogger(__name__).warning("Team tables init: %s", _te)
 
-register_chat_routes(app, platform="crm")
+register_chat_routes(
+    app,
+    platform="crm",
+    get_flask_user=lambda: current_user.username if current_user.is_authenticated else None,
+)
 
 @app.context_processor
 def inject_team():
     uid  = session.get("team_user_id")
-    user = tm.get_user_by_id(uid) if uid else None
+    try:
+        user = tm.get_user_by_id(uid) if uid else None
+    except Exception:
+        user = None
     role = session.get("team_role", "viewer")
     return dict(
         _current_user = user,
@@ -1449,6 +1456,27 @@ def api_zoho_test():
     result["account_id"] = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "not set")
     result["dc"]         = os.getenv("ZOHO_DC", "in")
     return jsonify(result)
+
+
+@app.route("/api/team-init")
+@login_required
+def api_team_init():
+    """Force-initialize team tables and seed users. Returns status."""
+    try:
+        tm.init_team_tables()
+        users = tm.get_all_users()
+        # Also sync current user into session
+        u = tm.get_user_by_username(current_user.username)
+        if u:
+            session["team_user_id"] = u["id"]
+            session["team_role"]    = u.get("role", "viewer")
+            session.modified = True
+        return jsonify({"ok": True, "users": len(users),
+                        "names": [x["username"] for x in users]})
+    except Exception as e:
+        import traceback
+        return jsonify({"ok": False, "error": str(e),
+                        "trace": traceback.format_exc()[-500:]})
 
 
 @app.route("/api/zoho-exchange-code", methods=["POST"])
