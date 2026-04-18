@@ -143,11 +143,16 @@
         </p>
 
         {% if import_result %}
-        <div class="alert alert-success py-2 px-3 mb-3" style="font-size:13px;border-radius:8px">
+        <div class="alert alert-{{ 'success' if import_result.imported > 0 else 'warning' }} py-2 px-3 mb-3" style="font-size:13px;border-radius:8px">
           <i class="bi bi-check-circle me-1"></i>
           Imported <strong>{{ import_result.imported }}</strong> leads,
-          skipped <strong>{{ import_result.skipped }}</strong> duplicates.
+          skipped <strong>{{ import_result.skipped }}</strong> rows.
+          {% if import_result.imported > 0 %}
           <a href="/leads" class="ms-2" style="color:inherit;text-decoration:underline">View Leads →</a>
+          {% endif %}
+          {% if import_result.sample_error is defined %}
+          <div class="mt-1 text-danger" style="font-size:12px">Error: {{ import_result.sample_error }}</div>
+          {% endif %}
         </div>
         {% endif %}
 

@@ -1047,7 +1047,9 @@ def prompt_generator_upload():
             except (ValueError, IndexError):
                 return ""
 
+        import uuid as _uuid
         imported = skipped = 0
+        errors = []
         for row_vals in rows[hdr_idx + 1:]:
             if not any(row_vals):
                 continue
@@ -1058,14 +1060,13 @@ def prompt_generator_upload():
                 if not company and not email:
                     skipped += 1
                     continue
-                # Skip obvious "research needed" placeholders
-                if "research" in email or "@" not in email:
-                    email = ""
+                # Strip obvious placeholder emails
+                if not email or "research" in email or "@" not in email:
+                    email = f"noemail_{_uuid.uuid4().hex[:10]}@import.placeholder"
 
                 first = col(row_vals, "first_name")
                 last  = col(row_vals, "last_name")
                 if not first and not last:
-                    # fallback: split "Name" column
                     name_col = col(row_vals, "name") or col(row_vals, "contact_name") or ""
                     parts = name_col.split()
                     first = parts[0] if parts else "Unknown"
@@ -1081,20 +1082,29 @@ def prompt_generator_upload():
                     "website"               : col(row_vals, "website"),
                     "city"                  : col(row_vals, "city"),
                     "country"               : col(row_vals, "country") or "Unknown",
+                    "industry"              : col(row_vals, "industry"),
                     "status"                : "New",
+                    "priority_score"        : 0,
+                    "services_needed"       : col(row_vals, "services_needed"),
+                    "outsourcing_likelihood": col(row_vals, "outsourcing_likelihood") or "Medium",
+                    "pitch_angle"           : col(row_vals, "pitch_angle"),
+                    "email_template"        : col(row_vals, "email_template") or "A",
                     "linkedin_url"          : col(row_vals, "linkedin_url"),
-                    "description"           : col(row_vals, "description"),
-                    "source"                : "ai_prompt",
                     "follow_up_stage"       : "",
-                    "outsourcing_likelihood": "Medium",
+                    "description"           : col(row_vals, "description"),
                 }
                 db.create_lead(data)
                 imported += 1
-            except Exception:
+            except Exception as _row_err:
+                errors.append(str(_row_err))
                 skipped += 1
 
+        import_result = {"imported": imported, "skipped": skipped}
+        if errors:
+            import_result["sample_error"] = errors[0]
+
         return render_template("prompt_generator.html",
-                               import_result={"imported": imported, "skipped": skipped},
+                               import_result=import_result,
                                import_error=None)
     except Exception as e:
         return render_template("prompt_generator.html",
