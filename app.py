@@ -103,23 +103,28 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for("dashboard"))
     if request.method == "POST":
-        username = request.form.get("username", "").strip().lower()
-        password = request.form.get("password", "")
-        info = CRM_USERS.get(username)
-        if info and check_password_hash(info["hash"], password):
-            user = CRMUser(info["id"], username, info["display"])
-            login_user(user, remember=request.form.get("remember") == "on")
-            # Also set team session for chat/notifications
-            try:
-                team_user = tm.authenticate(username, password)
-                if team_user:
-                    session["team_user_id"] = team_user["id"]
-                    session["team_role"]    = team_user["role"]
-            except Exception as _te:
-                log.warning("Team auth failed during login: %s", _te)
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("dashboard"))
-        flash("Invalid username or password.", "danger")
+        try:
+            username = request.form.get("username", "").strip().lower()
+            password = request.form.get("password", "")
+            info = CRM_USERS.get(username)
+            if info and check_password_hash(info["hash"], password):
+                user = CRMUser(info["id"], username, info["display"])
+                login_user(user, remember=request.form.get("remember") == "on")
+                # Also set team session for chat/notifications
+                try:
+                    team_user = tm.authenticate(username, password)
+                    if team_user:
+                        session["team_user_id"] = team_user["id"]
+                        session["team_role"]    = team_user["role"]
+                except Exception as _te:
+                    import logging; logging.getLogger(__name__).warning("Team auth failed: %s", _te)
+                next_page = request.args.get("next")
+                return redirect(next_page or url_for("dashboard"))
+            flash("Invalid username or password.", "danger")
+        except Exception as _login_err:
+            import logging, traceback
+            logging.getLogger(__name__).error("Login error: %s\n%s", _login_err, traceback.format_exc())
+            flash("Login error — please try again.", "danger")
     from flask import make_response
     resp = make_response(render_template("login.html"))
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
