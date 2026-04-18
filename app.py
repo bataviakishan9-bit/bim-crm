@@ -155,12 +155,21 @@ def login():
 
 
 @app.route("/logout")
-@login_required
 def logout():
-    _log("logout", "Logged out")
-    session.pop("team_user_id", None)
-    session.pop("team_role", None)
-    logout_user()
+    try:
+        # Capture username before session is cleared
+        uname = current_user.username if current_user.is_authenticated else "unknown"
+        uid   = session.get("team_user_id", 0)
+        ip    = request.remote_addr or ""
+        session.pop("team_user_id", None)
+        session.pop("team_role", None)
+        logout_user()
+        try:
+            tm.log_activity(uid, uname, "logout", "Logged out", ip, "crm")
+        except Exception:
+            pass
+    except Exception:
+        pass
     flash("You have been logged out.", "info")
     return redirect(url_for("login"))
 
@@ -251,8 +260,15 @@ except Exception as _init_err:
 
 @app.before_request
 def require_login():
-    public = {"login", "static"}
-    if request.endpoint and request.endpoint not in public and not current_user.is_authenticated:
+    public = {
+        "login", "static",
+        "api_sync_leads", "api_backup", "api_import_leads",
+    }
+    ep = request.endpoint or ""
+    # Allow all chat blueprint endpoints and any /api/* without session
+    if ep.startswith("chat.") or ep in public:
+        return
+    if ep and not current_user.is_authenticated:
         return redirect(url_for("login", next=request.url))
 
 
