@@ -295,6 +295,11 @@
       <a href="/reminders" class="nav-link {% if '/reminders' in request.path %}active{% endif %}">
         <i class="bi bi-bell"></i> Reminders
       </a>
+      {% if session.get('team_role') in ('admin','manager') %}
+      <a href="/activity-log" class="nav-link {% if '/activity-log' in request.path %}active{% endif %}">
+        <i class="bi bi-activity"></i> Activity Log
+      </a>
+      {% endif %}
       <hr>
       <a href="/expenses" class="nav-link {% if request.path == '/expenses' %}active{% endif %}">
         <i class="bi bi-receipt"></i> Expenses

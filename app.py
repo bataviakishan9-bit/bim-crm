@@ -23,8 +23,20 @@ from chat_routes import register_chat_routes
 
 try:
     tm.init_team_tables()
+    tm.init_activity_log_table()
 except Exception as _te:
     import logging; logging.getLogger(__name__).warning("Team tables init: %s", _te)
+
+
+def _log(action: str, details: str = ""):
+    """Log a user activity. Never raises."""
+    try:
+        uid   = session.get("team_user_id", 0)
+        uname = current_user.username if current_user.is_authenticated else "anonymous"
+        ip    = request.remote_addr or ""
+        tm.log_activity(uid, uname, action, details, ip, "crm")
+    except Exception:
+        pass
 
 register_chat_routes(
     app,
@@ -125,8 +137,10 @@ def login():
                         session["team_role"]    = team_user["role"]
                 except Exception as _te:
                     import logging; logging.getLogger(__name__).warning("Team auth failed: %s", _te)
+                tm.log_activity(0, username, "login", f"Logged in from {request.remote_addr}", request.remote_addr, "crm")
                 next_page = request.args.get("next")
                 return redirect(next_page or url_for("dashboard"))
+            tm.log_activity(0, username or "unknown", "login_failed", f"Failed login from {request.remote_addr}", request.remote_addr, "crm")
             flash("Invalid username or password.", "danger")
         except Exception as _login_err:
             import logging, traceback
@@ -143,6 +157,7 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    _log("logout", "Logged out")
     session.pop("team_user_id", None)
     session.pop("team_role", None)
     logout_user()
@@ -295,6 +310,7 @@ def new_lead():
         data["status"] = "New"
         try:
             lead_id = db.create_lead(data)
+            _log("create_lead", f"Created lead: {data.get('first_name','')} {data.get('last_name','')} @ {data.get('company','')}")
             flash("Lead created successfully!", "success")
             return redirect(url_for("lead_detail", lead_id=lead_id))
         except Exception as e:
@@ -358,6 +374,7 @@ def edit_lead(lead_id):
         data = _form_to_lead(request.form)
         data["status"] = request.form.get("status", lead["status"])
         db.update_lead(lead_id, data)
+        _log("edit_lead", f"Edited lead #{lead_id}: {lead.get('first_name','')} @ {lead.get('company','')}")
         flash("Lead updated!", "success")
         return redirect(url_for("lead_detail", lead_id=lead_id))
 
@@ -368,6 +385,8 @@ def edit_lead(lead_id):
 
 @app.route("/leads/<int:lead_id>/delete", methods=["POST"])
 def delete_lead(lead_id):
+    lead = db.get_lead(lead_id)
+    _log("delete_lead", f"Deleted lead #{lead_id}: {(lead or {}).get('first_name','')} @ {(lead or {}).get('company','')}")
     db.delete_lead(lead_id)
     flash("Lead deleted.", "info")
     return redirect(url_for("leads"))
@@ -379,6 +398,7 @@ def delete_lead(lead_id):
 def update_status(lead_id):
     status = request.form.get("status", "New")
     db.update_lead_status(lead_id, status)
+    _log("status_change", f"Lead #{lead_id} → {status}")
     flash(f"Status updated to {status}.", "success")
     return redirect(url_for("lead_detail", lead_id=lead_id))
 
@@ -418,8 +438,10 @@ def send_email(lead_id):
         db.advance_sequence_step(lead_id)
         if lead.get("status") == "New":
             db.update_lead_status(lead_id, "Contacted")
+        _log("send_email", f"Email {step+1}/3 → {lead['email']} ({lead.get('company','')})")
         flash(f"Email {step + 1}/3 sent to {lead['email']}!", "success")
     else:
+        _log("send_email_failed", f"Failed email to {lead['email']}")
         flash("Email failed. Run get_token.py to refresh Zoho credentials.", "danger")
 
     return redirect(url_for("lead_detail", lead_id=lead_id))
@@ -589,6 +611,7 @@ def send_all_emails():
     if errors:
         msg += "<br><small style='color:#c62828'>Errors: " + "; ".join(errors) + "</small>"
 
+    _log("bulk_send_email", f"Bulk send: {sent} sent, {skip_failed} failed, {skip_timing} too early")
     flash(msg, "success" if sent > 0 else ("warning" if skip_failed == 0 else "danger"))
     return redirect(url_for("leads"))
 
@@ -1102,6 +1125,7 @@ def prompt_generator_upload():
         import_result = {"imported": imported, "skipped": skipped}
         if errors:
             import_result["sample_error"] = errors[0]
+        _log("import_leads", f"Prompt Generator import: {imported} imported, {skipped} skipped from '{file.filename}'")
 
         return render_template("prompt_generator.html",
                                import_result=import_result,
@@ -2067,6 +2091,36 @@ def send_reminder_now(tid):
         db.mark_reminder_sent(tid)
         flash(f"Reminder sent for: {task['title']}", "success")
     return redirect(url_for("reminders"))
+
+
+# ── ACTIVITY LOG ──────────────────────────────────────────────────────────────
+
+@app.route("/activity-log")
+@login_required
+def activity_log():
+    role = session.get("team_role", "viewer")
+    if role not in ("admin", "manager"):
+        flash("Access denied.", "danger")
+        return redirect(url_for("dashboard"))
+    page       = int(request.args.get("page", 1))
+    per_page   = 50
+    username   = request.args.get("username", "")
+    action_f   = request.args.get("action", "")
+    platform_f = request.args.get("platform", "")
+    logs, total = tm.get_activity_logs(
+        platform=platform_f or None,
+        username=username or None,
+        action=action_f or None,
+        limit=per_page,
+        offset=(page - 1) * per_page,
+    )
+    users    = tm.get_activity_users()
+    pages    = max(1, (total + per_page - 1) // per_page)
+    return render_template("activity_log.html",
+                           logs=logs, total=total,
+                           page=page, pages=pages, per_page=per_page,
+                           username=username, action_f=action_f, platform_f=platform_f,
+                           users=users)
 
 
 # ── DB BACKUP ─────────────────────────────────────────────────────────────────

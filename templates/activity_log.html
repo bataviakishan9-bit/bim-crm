@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h4><i class="bi bi-activity me-2"></i>Activity Log</h4>
+    <small class="text-muted">Track what every team member is doing on the CRM — {{ total }} total entries.</small>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="GET" action="/activity-log" class="d-flex gap-2 mb-3 flex-wrap align-items-end">
+  <div>
+    <label class="form-label mb-1" style="font-size:11px;color:var(--muted);">User</label>
+    <select name="username" class="form-select form-select-sm" style="min-width:130px;background:var(--card);color:var(--text);border-color:var(--border)">
+      <option value="">All Users</option>
+      {% for u in users %}
+      <option value="{{ u }}" {{ 'selected' if username == u }}>{{ u }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label mb-1" style="font-size:11px;color:var(--muted);">Action</label>
+    <input name="action" value="{{ action_f }}" class="form-control form-control-sm" placeholder="e.g. send_email"
+           style="background:var(--card);color:var(--text);border-color:var(--border);min-width:140px">
+  </div>
+  <div>
+    <label class="form-label mb-1" style="font-size:11px;color:var(--muted);">Platform</label>
+    <select name="platform" class="form-select form-select-sm" style="min-width:120px;background:var(--card);color:var(--text);border-color:var(--border)">
+      <option value="">All</option>
+      <option value="crm"     {{ 'selected' if platform_f == 'crm' }}>CRM</option>
+      <option value="leadgen" {{ 'selected' if platform_f == 'leadgen' }}>LeadGen</option>
+    </select>
+  </div>
+  <div class="d-flex gap-2 align-items-end">
+    <button type="submit" class="btn btn-bim btn-sm">Filter</button>
+    <a href="/activity-log" class="btn btn-sm btn-outline-secondary">Reset</a>
+  </div>
+</form>
+
+<!-- Table -->
+<div class="card" style="border-radius:12px;overflow:hidden">
+  <div style="overflow-x:auto">
+    <table class="table table-hover mb-0" style="font-size:13px">
+      <thead style="background:var(--sidebar-bg)">
+        <tr>
+          <th style="width:160px;color:var(--muted);font-weight:500">Time</th>
+          <th style="color:var(--muted);font-weight:500">User</th>
+          <th style="color:var(--muted);font-weight:500">Action</th>
+          <th style="color:var(--muted);font-weight:500">Details</th>
+          <th style="color:var(--muted);font-weight:500">Platform</th>
+          <th style="color:var(--muted);font-weight:500">IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="color:var(--muted);white-space:nowrap;font-size:11px">{{ log.created_at[:19].replace('T',' ') if log.created_at else '' }}</td>
+          <td>
+            <span class="badge" style="background:var(--gold);color:#000;font-size:11px">{{ log.username }}</span>
+          </td>
+          <td>
+            {% set ac = log.action %}
+            {% if ac == 'login' %}
+              <span class="badge bg-success bg-opacity-75">login</span>
+            {% elif ac == 'login_failed' %}
+              <span class="badge bg-danger">login failed</span>
+            {% elif ac == 'logout' %}
+              <span class="badge bg-secondary">logout</span>
+            {% elif ac in ('create_lead','import_leads') %}
+              <span class="badge bg-primary bg-opacity-75">{{ ac }}</span>
+            {% elif ac == 'delete_lead' %}
+              <span class="badge bg-danger bg-opacity-75">delete lead</span>
+            {% elif ac == 'send_email' %}
+              <span class="badge" style="background:#1565c0;color:#fff">send email</span>
+            {% elif ac == 'send_email_failed' %}
+              <span class="badge bg-danger bg-opacity-50">email failed</span>
+            {% elif ac == 'bulk_send_email' %}
+              <span class="badge" style="background:#0d47a1;color:#fff">bulk email</span>
+            {% elif ac == 'status_change' %}
+              <span class="badge" style="background:#6a1b9a;color:#fff">status</span>
+            {% elif ac == 'edit_lead' %}
+              <span class="badge bg-warning text-dark">edit lead</span>
+            {% else %}
+              <span class="badge bg-secondary bg-opacity-50" style="color:var(--text)">{{ ac }}</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ log.details }}">{{ log.details }}</td>
+          <td>
+            <small class="text-muted">{{ log.platform }}</small>
+          </td>
+          <td style="font-size:11px;color:var(--muted)">{{ log.ip_address }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-4" style="color:var(--muted)">No activity yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+{% if pages > 1 %}
+<div class="d-flex justify-content-center gap-2 mt-3">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}&username={{ username }}&action={{ action_f }}&platform={{ platform_f }}"
+     class="btn btn-sm btn-outline-secondary">← Prev</a>
+  {% endif %}
+  <span class="btn btn-sm btn-bim disabled">{{ page }} / {{ pages }}</span>
+  {% if page < pages %}
+  <a href="?page={{ page+1 }}&username={{ username }}&action={{ action_f }}&platform={{ platform_f }}"
+     class="btn btn-sm btn-outline-secondary">Next →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
