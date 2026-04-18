@@ -7,25 +7,36 @@ import sqlite3
 from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+_PG_OK       = None  # None=untested, True/False=cached
 
 # ── Connection helper ──────────────────────────────────────────────────────────
 
 def _is_pg():
-    return bool(DATABASE_URL)
+    return bool(DATABASE_URL) and _PG_OK is not False
 
 def get_db():
-    if _is_pg():
-        import psycopg2
-        import psycopg2.extras
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-        return conn
-    else:
-        DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bim_crm.db")
-        conn = sqlite3.connect(DB_PATH, timeout=30)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=10000")
-        return conn
+    global _PG_OK
+    if DATABASE_URL and _PG_OK is not False:
+        import psycopg2, psycopg2.extras
+        url = DATABASE_URL
+        if "sslmode=" not in url:
+            url += ("&" if "?" in url else "?") + "sslmode=require"
+        try:
+            conn = psycopg2.connect(url,
+                                    cursor_factory=psycopg2.extras.RealDictCursor,
+                                    connect_timeout=8)
+            _PG_OK = True
+            return conn
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("PostgreSQL unavailable (%s), using SQLite", e)
+            _PG_OK = False
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bim_crm.db")
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
+    return conn
 
 def _q(sql: str) -> str:
     """Convert SQLite ? placeholders to %s for PostgreSQL."""
@@ -60,14 +71,7 @@ def _fetchone(row) -> dict | None:
 # ── Schema ─────────────────────────────────────────────────────────────────────
 
 def init_db():
-    try:
-        conn = get_db()
-    except Exception as e:
-        import logging
-        logging.warning("DB connection failed, falling back to SQLite: %s", e)
-        global DATABASE_URL
-        DATABASE_URL = ""
-        conn = get_db()
+    conn = get_db()   # get_db() now handles fallback internally via _PG_OK
     c = conn.cursor()
 
     if _is_pg():

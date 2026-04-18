@@ -285,6 +285,7 @@ def dashboard():
 # ── LEADS LIST ─────────────────────────────────────────────────────────────────
 
 @app.route("/leads")
+@login_required
 def leads():
     search   = request.args.get("search", "")
     status   = request.args.get("status", "")
@@ -304,6 +305,7 @@ def leads():
 # ── ADD LEAD ───────────────────────────────────────────────────────────────────
 
 @app.route("/leads/new", methods=["GET", "POST"])
+@login_required
 def new_lead():
     if request.method == "POST":
         data = _form_to_lead(request.form)
@@ -321,6 +323,7 @@ def new_lead():
 # ── LEAD DETAIL ────────────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>")
+@login_required
 def lead_detail(lead_id):
     lead = db.get_lead(lead_id)
     if not lead:
@@ -364,6 +367,7 @@ def lead_detail(lead_id):
 # ── EDIT LEAD ──────────────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/edit", methods=["GET", "POST"])
+@login_required
 def edit_lead(lead_id):
     lead = db.get_lead(lead_id)
     if not lead:
@@ -384,6 +388,7 @@ def edit_lead(lead_id):
 # ── DELETE LEAD ────────────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/delete", methods=["POST"])
+@login_required
 def delete_lead(lead_id):
     lead = db.get_lead(lead_id)
     _log("delete_lead", f"Deleted lead #{lead_id}: {(lead or {}).get('first_name','')} @ {(lead or {}).get('company','')}")
@@ -395,6 +400,7 @@ def delete_lead(lead_id):
 # ── UPDATE STATUS ──────────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/status", methods=["POST"])
+@login_required
 def update_status(lead_id):
     status = request.form.get("status", "New")
     db.update_lead_status(lead_id, status)
@@ -406,6 +412,7 @@ def update_status(lead_id):
 # ── SEND EMAIL ─────────────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/send-email", methods=["POST"])
+@login_required
 def send_email(lead_id):
     lead = db.get_lead(lead_id)
     if not lead:
@@ -450,6 +457,7 @@ def send_email(lead_id):
 # ── MARK EMAIL OPENED ──────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/mark-opened", methods=["POST"])
+@login_required
 def mark_opened(lead_id):
     email_log_id = int(request.form.get("email_log_id", 0))
     db.mark_email_opened(email_log_id)
@@ -478,6 +486,7 @@ def mark_opened(lead_id):
 # ── MARK EMAIL CLICKED ─────────────────────────────────────────────────────────
 
 @app.route("/leads/<int:lead_id>/mark-bounced", methods=["POST"])
+@login_required
 def mark_bounced(lead_id):
     email_log_id = int(request.form.get("email_log_id", 0))
     reason       = request.form.get("reason", "Email bounced / address not found")
@@ -496,6 +505,7 @@ def mark_bounced(lead_id):
 
 
 @app.route("/leads/<int:lead_id>/mark-clicked", methods=["POST"])
+@login_required
 def mark_clicked(lead_id):
     email_log_id = int(request.form.get("email_log_id", 0))
     db.mark_email_clicked(email_log_id)
@@ -531,6 +541,7 @@ def create_task(lead_id):
 
 
 @app.route("/tasks/<int:task_id>/complete", methods=["POST"])
+@login_required
 def complete_task(task_id):
     db.complete_task(task_id)
     flash("Task marked complete.", "success")
@@ -619,6 +630,7 @@ def send_all_emails():
 # ── IMPORT FROM GOOGLE SHEET ──────────────────────────────────────────────────
 
 @app.route("/leads/import-sheet", methods=["GET", "POST"])
+@login_required
 def import_from_sheet():
     if request.method == "POST":
         import csv, io, requests as req
@@ -677,6 +689,7 @@ def import_from_sheet():
 # ── PIPELINE (KANBAN) ─────────────────────────────────────────────────────────
 
 @app.route("/pipeline")
+@login_required
 def pipeline():
     all_leads = db.get_all_leads()
     stages = ["New", "Contacted", "Warm", "Hot", "Engaged", "Cold", "Unsubscribed", "Invalid"]
@@ -704,6 +717,7 @@ def pipeline():
 
 
 @app.route("/leads/<int:lead_id>/move-stage", methods=["POST"])
+@login_required
 def move_stage(lead_id):
     new_status = request.form.get("status", "New")
     db.update_lead_status(lead_id, new_status)
@@ -713,6 +727,7 @@ def move_stage(lead_id):
 # ── REPLIES INBOX ─────────────────────────────────────────────────────────────
 
 @app.route("/replies")
+@login_required
 def replies():
     priority = request.args.get("priority", "")
     all_replies = db.get_replies(priority=priority or None, status=None)
@@ -849,6 +864,7 @@ def sync_status():
 
 
 @app.route("/replies/sync")
+@login_required
 def sync_replies():
     """Pull replies from Zoho Mail inbox."""
     all_leads   = db.get_all_leads()
@@ -887,13 +903,16 @@ def sync_replies():
 
 
 @app.route("/leads/<int:lead_id>/log-reply", methods=["POST"])
+@login_required
 def log_reply(lead_id):
     lead     = db.get_lead(lead_id)
+    if not lead:
+        flash("Lead not found.", "danger")
+        return redirect(url_for("leads"))
     subject  = request.form.get("subject", "Reply from lead")
     body     = request.form.get("body", "")
     priority = request.form.get("priority", "Medium")
-
-    db.add_reply(lead_id, lead["email"], subject, body, priority, source="Manual")
+    db.add_reply(lead_id, lead.get("email",""), subject, body, priority, source="Manual")
     db.update_lead_status(lead_id, "Engaged")
     db.create_task(
         lead_id,
@@ -906,6 +925,7 @@ def log_reply(lead_id):
 
 
 @app.route("/replies/<int:reply_id>/priority", methods=["POST"])
+@login_required
 def update_reply_priority(reply_id):
     priority = request.form.get("priority")
     db.update_reply(reply_id, priority=priority)
@@ -913,6 +933,7 @@ def update_reply_priority(reply_id):
 
 
 @app.route("/replies/<int:reply_id>/status", methods=["POST"])
+@login_required
 def update_reply_status(reply_id):
     status = request.form.get("status")
     db.update_reply(reply_id, status=status)
@@ -920,6 +941,7 @@ def update_reply_status(reply_id):
 
 
 @app.route("/replies/<int:reply_id>/delete", methods=["POST"])
+@login_required
 def delete_reply(reply_id):
     db.delete_reply(reply_id)
     flash("Reply deleted.", "info")
@@ -929,6 +951,7 @@ def delete_reply(reply_id):
 # ── IMPORT FROM EXCEL ──────────────────────────────────────────────────────────
 
 @app.route("/leads/import", methods=["GET", "POST"])
+@login_required
 def import_leads():
     if request.method == "POST":
         file = request.files.get("excel_file")
@@ -1169,6 +1192,7 @@ def prompt_generator_template():
 # ── SETTINGS ───────────────────────────────────────────────────────────────────
 
 @app.route("/settings")
+@login_required
 def settings():
     cid  = os.getenv("ZOHO_CLIENT_ID", "NOT SET")
     dc   = os.getenv("ZOHO_DC", "in")
@@ -1737,6 +1761,7 @@ def hunter_domain(lead_id):
 
 
 @app.route("/leads/<int:lead_id>/update-email", methods=["POST"])
+@login_required
 def update_email(lead_id):
     new_email = request.form.get("email", "").strip()
     if new_email:
@@ -1753,8 +1778,12 @@ def update_email(lead_id):
 
 @app.route("/api/import-leads", methods=["POST"])
 def api_import_leads():
-    """Bulk import leads via JSON POST — runs inside Flask process to avoid DB lock."""
+    """Bulk import leads via JSON POST — secret-authenticated."""
     import json as _json
+    secret = os.getenv("SYNC_SECRET", "bim-sync-2025")
+    req_secret = request.headers.get("X-Sync-Secret","") or (request.get_json(silent=True) or {}).get("secret","")
+    if req_secret != secret:
+        return jsonify({"error": "unauthorized"}), 401
     data = request.get_json(force=True)
     leads_data = data.get("leads", [])
     imported, skipped = 0, 0
@@ -2155,6 +2184,39 @@ def backup_db():
     return Response(data,
                     mimetype="application/json",
                     headers={"Content-Disposition": f"attachment; filename=bim_crm_backup_{ts}.json"})
+
+
+# ── AUTOMATED BACKUP API ──────────────────────────────────────────────────────
+
+@app.route("/api/backup")
+def api_backup():
+    """Token-authenticated JSON backup for automated daily PC download."""
+    from flask import Response
+    import json as _json
+    secret = os.getenv("BACKUP_SECRET", os.getenv("SYNC_SECRET", "bim-sync-2025"))
+    token  = request.headers.get("X-Backup-Token","") or request.args.get("token","")
+    if token != secret:
+        return jsonify({"error": "unauthorized"}), 401
+    tables = ["leads","email_logs","replies","tasks","team_tasks","responsibilities",
+              "user_settings","expenses","income_entries","projects","invoices",
+              "invoice_items","user_activity_log"]
+    conn = db.get_db()
+    c    = conn.cursor()
+    backup = {}
+    for t in tables:
+        try:
+            c.execute(f"SELECT * FROM {t}")
+            backup[t] = db._fetchall(c.fetchall())
+        except Exception:
+            backup[t] = []
+    conn.close()
+    def _default(o):
+        from datetime import date, datetime as dt
+        return str(o) if isinstance(o, (date, dt)) else str(o)
+    data = _json.dumps(backup, default=_default, indent=2, ensure_ascii=False)
+    ts   = datetime.now().strftime("%Y%m%d_%H%M")
+    return Response(data, mimetype="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=crm_backup_{ts}.json"})
 
 
 # ── ONE-TIME MIGRATION ────────────────────────────────────────────────────────
