@@ -110,10 +110,13 @@ def login():
             user = CRMUser(info["id"], username, info["display"])
             login_user(user, remember=request.form.get("remember") == "on")
             # Also set team session for chat/notifications
-            team_user = tm.authenticate(username, password)
-            if team_user:
-                session["team_user_id"] = team_user["id"]
-                session["team_role"]    = team_user["role"]
+            try:
+                team_user = tm.authenticate(username, password)
+                if team_user:
+                    session["team_user_id"] = team_user["id"]
+                    session["team_role"]    = team_user["role"]
+            except Exception as _te:
+                log.warning("Team auth failed during login: %s", _te)
             next_page = request.args.get("next")
             return redirect(next_page or url_for("dashboard"))
         flash("Invalid username or password.", "danger")
