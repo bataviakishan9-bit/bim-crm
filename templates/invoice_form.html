@@ -10,6 +10,18 @@
   </a>
 </div>
 
+<datalist id="sacCodes">
+  <option value="998314">998314 — IT design and development services</option>
+  <option value="998315">998315 — IT support and maintenance</option>
+  <option value="998316">998316 — IT infrastructure management</option>
+  <option value="998331">998331 — Cloud computing services</option>
+  <option value="998344">998344 — Engineering advisory and consultancy</option>
+  <option value="997332">997332 — Engineering services (structural/MEP)</option>
+  <option value="997333">997333 — Architectural and drafting services</option>
+  <option value="997331">997331 — Architectural services</option>
+  <option value="998392">998392 — Other professional/technical services</option>
+  <option value="9983">9983 — Other professional services</option>
+</datalist>
 <form method="post" id="invoiceForm">
 <div class="row g-4">
 
@@ -136,7 +148,7 @@
               <tr>
                 <td><input class="form-control form-control-sm" name="item_description[]"
                   value="{{ item.description }}" required onchange="recalc()"></td>
-                <td><input class="form-control form-control-sm" name="item_sac[]"
+                <td><input class="form-control form-control-sm" name="item_sac[]" list="sacCodes"
                   value="{{ item.sac_code or '' }}" placeholder="998344"></td>
                 <td><input type="number" class="form-control form-control-sm" name="item_unit[]"
                   value="{{ item.unit or 1 }}" min="1" onchange="recalc()"></td>
@@ -153,7 +165,7 @@
               <tr>
                 <td><input class="form-control form-control-sm" name="item_description[]"
                   required onchange="recalc()"></td>
-                <td><input class="form-control form-control-sm" name="item_sac[]"
+                <td><input class="form-control form-control-sm" name="item_sac[]" list="sacCodes"
                   placeholder="998344"></td>
                 <td><input type="number" class="form-control form-control-sm" name="item_unit[]"
                   value="1" min="1" onchange="recalc()"></td>
@@ -205,7 +217,7 @@
 function addItem() {
   const row = `<tr>
     <td><input class="form-control form-control-sm" name="item_description[]" required onchange="recalc()"></td>
-    <td><input class="form-control form-control-sm" name="item_sac[]" placeholder="998344"></td>
+    <td><input class="form-control form-control-sm" name="item_sac[]" list="sacCodes" placeholder="998344"></td>
     <td><input type="number" class="form-control form-control-sm" name="item_unit[]" value="1" min="1" onchange="recalc()"></td>
     <td><input type="number" class="form-control form-control-sm" name="item_rate[]" value="0" step="0.01" onchange="recalc()"></td>
     <td class="item-amount text-end pt-2" style="font-weight:600;">0</td>

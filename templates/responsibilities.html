@@ -31,12 +31,10 @@
 </div>
 {% endif %}
 
-{% set user_colors = {'kishan':'#1B3A6B','hirakraj':'var(--gold)','tirth':'#6a1b9a','jenish':'#e65100'} %}
-
 {% for username, items in grouped.items() %}
 <div class="card mb-4">
   <div class="card-header d-flex align-items-center gap-2"
-       style="background:{{ user_colors.get(username,'#555') }};color:#fff;">
+       style="background:{{ user_colors.get(username,'#444') }};color:#fff;">
     <i class="bi bi-person-fill"></i>
     <strong>{{ team.get(username, username) }}</strong>
     <span class="badge ms-auto" style="background:rgba(255,255,255,0.2);font-size:11px;">

@@ -31,6 +31,18 @@
                 <td><strong>{{ cfg.sender_email or '—' }}</strong></td></tr>
             <tr><td style="color:var(--muted);">Sender Name</td>
                 <td>{{ cfg.sender_name or '—' }}</td></tr>
+            <tr><td style="color:var(--muted);">Job Title</td>
+                <td>{{ cfg.sender_title or '—' }}</td></tr>
+            <tr><td style="color:var(--muted);">Phone</td>
+                <td>{{ cfg.sender_phone or '—' }}</td></tr>
+            <tr><td style="color:var(--muted);">Email Aliases</td>
+                <td style="font-size:11px;">
+                  {% if cfg.sender_email_aliases %}
+                    {% for a in cfg.sender_email_aliases.split(',') %}
+                      <span class="badge" style="background:rgba(100,130,220,0.12);color:#9fa8da;margin:1px;">{{ a.strip() }}</span>
+                    {% endfor %}
+                  {% else %}—{% endif %}
+                </td></tr>
             <tr><td style="color:var(--muted);">Zoho Client ID</td>
                 <td>{{ (cfg.zoho_client_id or '')[:12] }}{% if cfg.zoho_client_id|length > 12 %}…{% endif %}</td></tr>
             <tr><td style="color:var(--muted);">Zoho Account ID</td>
@@ -104,13 +116,43 @@
             <div class="form-text">This is the FROM address recipients will see.</div>
           </div>
 
-          <div class="mb-4">
+          <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px;">
               <i class="bi bi-person-badge text-primary me-1"></i> Your Sender Name
             </label>
             <input type="text" name="sender_name" class="form-control form-control-sm"
                    value="{{ cfg.sender_name or '' }}"
                    placeholder="Your Name — BIM Infra Solutions">
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">
+                <i class="bi bi-briefcase text-primary me-1"></i> Your Job Title
+              </label>
+              <input type="text" name="sender_title" class="form-control form-control-sm"
+                     value="{{ cfg.sender_title or '' }}"
+                     placeholder="e.g. Co-founder &amp; CFO">
+              <div class="form-text">Shown in email signature</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" style="font-size:13px;">
+                <i class="bi bi-telephone text-primary me-1"></i> Your Phone
+              </label>
+              <input type="text" name="sender_phone" class="form-control form-control-sm"
+                     value="{{ cfg.sender_phone or '' }}"
+                     placeholder="+91 94266 35181">
+              <div class="form-text">Shown in email signature</div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" style="font-size:13px;">
+              <i class="bi bi-envelope-plus text-primary me-1"></i> Additional Sender Emails (Aliases)
+            </label>
+            <textarea name="sender_email_aliases" class="form-control form-control-sm font-monospace" rows="3"
+                      placeholder="One email per line&#10;info@biminfrasolutions.in&#10;team@biminfrasolutions.in">{{ (cfg.sender_email_aliases or '').replace(',', '\n') }}</textarea>
+            <div class="form-text">These appear as choices in the "Send from" dropdown on lead pages. Must be configured as aliases in your Zoho account.</div>
           </div>
 
           <hr class="my-3">

@@ -45,29 +45,39 @@
   <div class="card-body" style="font-size:13px;">
     <p style="color:var(--muted);">Hunter.io finds and verifies professional email addresses. Free plan = 25 searches/month.</p>
 
-    <table class="table table-sm" style="max-width:500px;">
-      <tr>
-        <td width="200"><strong>HUNTER_API_KEY</strong></td>
-        <td>
-          {% if hunter_key %}
-            <span class="badge" style="background:rgba(76,175,80,0.12);color:#2e7d32;">✓ Configured</span>
-            <span style="color:var(--muted);font-size:11px;margin-left:6px;">{{ hunter_key }}</span>
-          {% else %}
-            <span class="badge" style="background:rgba(244,67,54,0.12);color:#c62828;">Not set</span>
-          {% endif %}
-        </td>
-      </tr>
-    </table>
+    <div class="mb-3">
+      <strong>Active key:</strong>
+      {% if hunter_key %}
+        <span class="badge ms-2" style="background:rgba(76,175,80,0.12);color:#2e7d32;">✓ Configured</span>
+        <span style="color:var(--muted);font-size:11px;margin-left:6px;">{{ hunter_key }}</span>
+      {% else %}
+        <span class="badge ms-2" style="background:rgba(244,67,54,0.12);color:#c62828;">Not set</span>
+      {% endif %}
+    </div>
 
-    <div class="mt-2 p-3 rounded" style="background:var(--surface)e1;border-left:4px solid #e65100;font-size:12px;">
+    <!-- Per-user key form -->
+    <form method="POST" action="/settings/save-hunter-key" class="mb-3">
+      <label class="form-label fw-semibold">Your personal Hunter.io API key</label>
+      <div class="d-flex gap-2" style="max-width:480px;">
+        <input type="text" name="hunter_api_key" class="form-control form-control-sm"
+               value="{{ user_hunter_key or '' }}"
+               placeholder="Paste your Hunter.io API key here…">
+        <button type="submit" class="btn btn-sm btn-bim" style="white-space:nowrap">
+          <i class="bi bi-check-lg me-1"></i>Save Key
+        </button>
+      </div>
+      <div class="form-text text-muted mt-1">
+        Your key is used for <em>your</em> searches only. Each team member can set their own.
+        Leave blank to use the shared server key (if configured).
+      </div>
+    </form>
+
+    <div class="mt-2 p-3 rounded" style="background:var(--surface2);border-left:4px solid #e65100;font-size:12px;">
       <strong>How to get your free Hunter.io API key:</strong>
       <ol class="mb-0 mt-1">
         <li>Go to <strong>hunter.io</strong> → Sign up free</li>
         <li>Go to <strong>API</strong> section in your dashboard</li>
-        <li>Copy your API key</li>
-        <li>Open <code>C:\Users\Kishan\BIM_CRM\.env</code></li>
-        <li>Paste it: <code>HUNTER_API_KEY=your_key_here</code></li>
-        <li>Restart the app</li>
+        <li>Copy your API key and paste it above</li>
       </ol>
     </div>
 

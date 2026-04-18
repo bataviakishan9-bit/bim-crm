@@ -180,8 +180,8 @@
         <!-- Column mapping hint -->
         <div class="mt-3 p-3" style="background:#1a1a1a;border-radius:8px;font-size:11px;color:#777">
           <strong style="color:#aaa">Expected columns (any order, case-insensitive):</strong><br>
-          <span style="color:var(--gold)">Company, First Name, Last Name, Email, Title / Job Title, Phone, Website, City, Country, LinkedIn URL, Description</span><br>
-          Extra columns are ignored. Only <em>Email</em> or <em>Company</em> is required.
+          <span style="color:var(--gold)">Company, First Name, Last Name, <strong style="color:#ef4444">Email *</strong>, Title / Job Title, Phone, Website, City, Country, LinkedIn URL, Description</span><br>
+          <strong style="color:#ef4444">Email is required.</strong> Rows without a valid email will be skipped. Company is also required.
         </div>
       </div>
     </div>

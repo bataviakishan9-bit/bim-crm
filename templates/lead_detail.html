@@ -111,6 +111,18 @@
         {% if sequence_step < 3 %}
           {% if can_send_next %}
           <form method="POST" action="/leads/{{ lead.id }}/send-email">
+            {% if sender_options and sender_options | length > 1 %}
+            <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+              <label class="text-muted" style="font-size:12px;white-space:nowrap;">Send from:</label>
+              <select name="from_email" class="form-select form-select-sm" style="max-width:260px;font-size:12px;">
+                {% for addr in sender_options %}
+                <option value="{{ addr }}">{{ addr }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% elif sender_options %}
+            <input type="hidden" name="from_email" value="{{ sender_options[0] }}">
+            {% endif %}
             <button class="btn btn-bim">
               <i class="bi bi-send me-1"></i> Send Email {{ sequence_step + 1 }}/3 Now
             </button>
@@ -365,13 +377,13 @@
 
     <!-- Hunter.io Email Finder -->
     <div class="card mb-3" id="hunterCard">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong><i class="bi bi-search me-1" style="color:#ffb74d;"></i> Hunter.io — Find & Verify Email</strong>
+      <div class="card-header d-flex justify-content-between align-items-center" style="background:#1f1f1f;border-color:rgba(255,255,255,0.08)">
+        <strong style="color:#ffb74d"><i class="bi bi-search me-1"></i> Hunter.io — Find & Verify Email</strong>
         <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#hunterPanel">
           <i class="bi bi-chevron-down"></i>
         </button>
       </div>
-      <div class="collapse" id="hunterPanel">
+      <div class="collapse show" id="hunterPanel">
         <div class="card-body" style="font-size:13px;">
 
           <!-- Current email + verify -->

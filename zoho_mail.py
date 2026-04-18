@@ -191,8 +191,18 @@ class ZohoMailClient:
         first_name = lead.get("first_name", "there")
         company    = lead.get("company", "your company")
 
+        # Build sender info from user_settings so the signature is personalised
+        s = user_settings or {}
+        sender_info = {
+            "sender_name" : s.get("sender_name")  or SENDER_NAME,
+            "sender_email": s.get("sender_email") or SENDER_EMAIL,
+            "sender_title": s.get("sender_title") or TITLE,
+            "sender_phone": s.get("sender_phone") or PHONE,
+        }
+
         subject, html_body = get_email_content(template, step, first_name, company,
-                                               custom_override=custom_template)
+                                               custom_override=custom_template,
+                                               sender_info=sender_info)
 
         if not subject:
             return False, "", ""
@@ -556,14 +566,15 @@ def get_portfolio_link(template: str) -> str:
 
 
 def get_email_content(template: str, step: int, first_name: str, company: str,
-                      custom_override: dict = None) -> tuple:
+                      custom_override: dict = None, sender_info: dict = None) -> tuple:
     """Returns (subject, html_body) for the given template + step.
-    Pass custom_override dict {subject, body} to use a DB-stored custom template."""
+    Pass custom_override dict {subject, body} to use a DB-stored custom template.
+    Pass sender_info dict {sender_name, sender_email, sender_title, sender_phone} to personalise signature."""
     if custom_override:
         raw_body = custom_override["body"].replace("{first_name}", first_name).replace("{company}", company)
         raw_subj = custom_override["subject"].replace("{first_name}", first_name).replace("{company}", company)
         port_link = get_portfolio_link(template)
-        return raw_subj, _wrap_email(raw_body, port_link)
+        return raw_subj, _wrap_email(raw_body, port_link, sender_info=sender_info)
 
     # ── TEMPLATE A — Enterprise GC / Engineering Firms (USA/Canada/Australia) ──
     A = [
@@ -794,12 +805,17 @@ def get_email_content(template: str, step: int, first_name: str, company: str,
 
     content  = steps[step]
     port_link = get_portfolio_link(template)
-    return content["subject"], _wrap_email(content["body"], port_link)
+    return content["subject"], _wrap_email(content["body"], port_link, sender_info=sender_info)
 
 
-def _wrap_email(body: str, portfolio_link: str = None) -> str:
-    """Simple clean email layout."""
-    port = portfolio_link or PORTFOLIO_LINK
+def _wrap_email(body: str, portfolio_link: str = None, sender_info: dict = None) -> str:
+    """Simple clean email layout. sender_info dict personalises the signature."""
+    s     = sender_info or {}
+    name  = s.get("sender_name")  or SENDER_NAME
+    email = s.get("sender_email") or SENDER_EMAIL
+    title = s.get("sender_title") or TITLE
+    phone = s.get("sender_phone") or PHONE
+    port  = portfolio_link or PORTFOLIO_LINK
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -816,11 +832,11 @@ def _wrap_email(body: str, portfolio_link: str = None) -> str:
 
     <!-- Signature -->
     <div style="font-size:13px;color:#444;line-height:2;">
-      <div style="font-weight:700;font-size:14px;color:#1B3A6B;">Kishan Batavia</div>
-      <div style="color:#888;">Co-founder &amp; CFO — BIM INFRASOLUTIONS LLP</div>
+      <div style="font-weight:700;font-size:14px;color:#1B3A6B;">{name}</div>
+      <div style="color:#888;">{title} — {COMPANY_FULL}</div>
       <div style="margin-top:4px;">
-        +91 94266 35181 &nbsp;|&nbsp;
-        <a href="mailto:kishan.batavia@biminfrasolutions.in" style="color:#1B3A6B;text-decoration:none;">kishan.batavia@biminfrasolutions.in</a> &nbsp;|&nbsp;
+        {phone} &nbsp;|&nbsp;
+        <a href="mailto:{email}" style="color:#1B3A6B;text-decoration:none;">{email}</a> &nbsp;|&nbsp;
         <a href="{WEBSITE}" style="color:#1B3A6B;text-decoration:none;">{WEBSITE}</a>
       </div>
       <div style="margin-top:10px;">

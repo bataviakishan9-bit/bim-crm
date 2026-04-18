@@ -367,7 +367,18 @@ def lead_detail(lead_id):
             if not can_send_next:
                 next_send_date = (last_sent + timedelta(days=required)).strftime("%b %d, %Y")
 
-    wa_logs = db.get_whatsapp_logs(lead_id)
+    wa_logs  = db.get_whatsapp_logs(lead_id)
+    user_cfg = db.get_user_settings(current_user.username) or {}
+    # Build sender aliases list: primary + extra aliases
+    primary  = user_cfg.get("sender_email", "")
+    raw_aliases = user_cfg.get("sender_email_aliases", "") or ""
+    alias_list = [e.strip() for e in raw_aliases.split(",") if e.strip() and "@" in e.strip()]
+    sender_options = []
+    if primary:
+        sender_options.append(primary)
+    for a in alias_list:
+        if a not in sender_options:
+            sender_options.append(a)
     return render_template("lead_detail.html",
                            lead=lead,
                            email_logs=email_logs,
@@ -377,7 +388,8 @@ def lead_detail(lead_id):
                            sequence_step=step,
                            wa_logs=wa_logs,
                            wa_templates=WA_TEMPLATES,
-                           twilio_enabled=bool(os.getenv("TWILIO_ACCOUNT_SID")))
+                           twilio_enabled=bool(os.getenv("TWILIO_ACCOUNT_SID")),
+                           sender_options=sender_options)
 
 
 # ── EDIT LEAD ──────────────────────────────────────────────────────────────────
@@ -441,7 +453,11 @@ def send_email(lead_id):
         return redirect(url_for("lead_detail", lead_id=lead_id))
 
     try:
-        user_cfg      = db.get_user_settings(current_user.username)
+        user_cfg   = dict(db.get_user_settings(current_user.username) or {})
+        # Allow sender override from form (multiple aliases support)
+        from_email = request.form.get("from_email", "").strip()
+        if from_email and "@" in from_email:
+            user_cfg["sender_email"] = from_email
         custom_tpl    = db.get_email_template(lead.get("email_template", "A"), step)
         success, subject, body = mail_client.send_sequence_email(
             lead, step,
@@ -1118,13 +1134,15 @@ def prompt_generator_upload():
             try:
                 company = col(row_vals, "company")
                 email   = col(row_vals, "email").lower()
-                # Need at least company or email
-                if not company and not email:
+                # Email is required — skip rows without a real email
+                if not email or "research" in email.lower() or "@" not in email or "." not in email.split("@")[-1]:
                     skipped += 1
+                    errors.append(f"Row skipped — no valid email (company: {company or 'unknown'})")
                     continue
-                # Strip obvious placeholder emails
-                if not email or "research" in email or "@" not in email:
-                    email = f"noemail_{_uuid.uuid4().hex[:10]}@import.placeholder"
+                if not company:
+                    skipped += 1
+                    errors.append(f"Row skipped — no company name (email: {email})")
+                    continue
 
                 first = col(row_vals, "first_name")
                 last  = col(row_vals, "last_name")
@@ -1213,14 +1231,28 @@ def settings():
     cid  = os.getenv("ZOHO_CLIENT_ID", "NOT SET")
     dc   = os.getenv("ZOHO_DC", "in")
     acct = os.getenv("ZOHO_MAIL_ACCOUNT_ID", "NOT SET")
-    hkey = os.getenv("HUNTER_API_KEY", "")
-    masked_cid  = cid[:10] + "..." if len(cid) > 10 else cid
-    masked_hkey = hkey[:8] + "..." if len(hkey) > 8 else ("" if not hkey else hkey)
+    env_hkey = os.getenv("HUNTER_API_KEY", "")
+    masked_cid = cid[:10] + "..." if len(cid) > 10 else cid
+    # User-specific hunter key takes precedence
+    user_row   = tm.get_user_by_id(current_user.id)
+    user_hkey  = (user_row.get("hunter_api_key") or "") if user_row else ""
+    active_hkey = user_hkey or env_hkey
+    masked_hkey = active_hkey[:8] + "..." if len(active_hkey) > 8 else active_hkey
     return render_template("settings.html",
                            zoho_client_id=masked_cid,
                            zoho_dc=dc,
                            zoho_account_id=acct,
-                           hunter_key=masked_hkey)
+                           hunter_key=masked_hkey,
+                           user_hunter_key=user_hkey)
+
+
+@app.route("/settings/save-hunter-key", methods=["POST"])
+@login_required
+def save_hunter_key():
+    key = request.form.get("hunter_api_key", "").strip()
+    tm.update_user(current_user.id, {"hunter_api_key": key})
+    flash("Hunter.io API key saved.", "success")
+    return redirect(url_for("settings"))
 
 
 TEMPLATE_LABELS = {
@@ -1476,33 +1508,45 @@ def my_settings():
         if action == "unlock":
             cfg["is_locked"] = 0
             db.save_user_settings(username, {
-                "sender_email"      : cfg.get("sender_email", ""),
-                "sender_name"       : cfg.get("sender_name", ""),
-                "zoho_client_id"    : cfg.get("zoho_client_id", ""),
-                "zoho_client_secret": cfg.get("zoho_client_secret", ""),
-                "zoho_refresh_token": cfg.get("zoho_refresh_token", ""),
-                "zoho_dc"           : cfg.get("zoho_dc", "in"),
-                "zoho_account_id"   : cfg.get("zoho_account_id", ""),
-                "is_locked"         : 0,
-                "wa_phone"          : cfg.get("wa_phone", ""),
-                "callmebot_api_key" : cfg.get("callmebot_api_key", ""),
+                "sender_email"         : cfg.get("sender_email", ""),
+                "sender_name"          : cfg.get("sender_name", ""),
+                "sender_email_aliases" : cfg.get("sender_email_aliases", ""),
+                "sender_title"         : cfg.get("sender_title", ""),
+                "sender_phone"         : cfg.get("sender_phone", ""),
+                "zoho_client_id"       : cfg.get("zoho_client_id", ""),
+                "zoho_client_secret"   : cfg.get("zoho_client_secret", ""),
+                "zoho_refresh_token"   : cfg.get("zoho_refresh_token", ""),
+                "zoho_dc"              : cfg.get("zoho_dc", "in"),
+                "zoho_account_id"      : cfg.get("zoho_account_id", ""),
+                "is_locked"            : 0,
+                "wa_phone"             : cfg.get("wa_phone", ""),
+                "callmebot_api_key"    : cfg.get("callmebot_api_key", ""),
             })
             flash("Settings unlocked. You can now edit.", "info")
             return redirect(url_for("my_settings"))
 
         # Save
         lock = 1 if request.form.get("lock") == "on" else 0
+        # Normalise aliases: one per line → comma-separated, strip blanks
+        raw_aliases = request.form.get("sender_email_aliases", "")
+        aliases_clean = ",".join(
+            e.strip() for e in raw_aliases.replace(",", "\n").splitlines()
+            if e.strip() and "@" in e.strip()
+        )
         data = {
-            "sender_email"      : request.form.get("sender_email", "").strip(),
-            "sender_name"       : request.form.get("sender_name", "").strip(),
-            "zoho_client_id"    : request.form.get("zoho_client_id", "").strip(),
-            "zoho_client_secret": request.form.get("zoho_client_secret", "").strip(),
-            "zoho_refresh_token": request.form.get("zoho_refresh_token", "").strip(),
-            "zoho_dc"           : request.form.get("zoho_dc", "in").strip(),
-            "zoho_account_id"   : request.form.get("zoho_account_id", "").strip(),
-            "is_locked"         : lock,
-            "wa_phone"          : request.form.get("wa_phone", "").strip(),
-            "callmebot_api_key" : request.form.get("callmebot_api_key", "").strip(),
+            "sender_email"         : request.form.get("sender_email", "").strip(),
+            "sender_name"          : request.form.get("sender_name", "").strip(),
+            "sender_email_aliases" : aliases_clean,
+            "sender_title"         : request.form.get("sender_title", "").strip(),
+            "sender_phone"         : request.form.get("sender_phone", "").strip(),
+            "zoho_client_id"       : request.form.get("zoho_client_id", "").strip(),
+            "zoho_client_secret"   : request.form.get("zoho_client_secret", "").strip(),
+            "zoho_refresh_token"   : request.form.get("zoho_refresh_token", "").strip(),
+            "zoho_dc"              : request.form.get("zoho_dc", "in").strip(),
+            "zoho_account_id"      : request.form.get("zoho_account_id", "").strip(),
+            "is_locked"            : lock,
+            "wa_phone"             : request.form.get("wa_phone", "").strip(),
+            "callmebot_api_key"    : request.form.get("callmebot_api_key", "").strip(),
         }
         db.save_user_settings(username, data)
         flash("Settings saved and locked!" if lock else "Settings saved.", "success")
@@ -1665,13 +1709,24 @@ def api_stats():
     return jsonify(db.get_stats())
 
 
+def _get_hunter_key():
+    """Return user's personal Hunter key, or fall back to env var."""
+    if current_user and current_user.is_authenticated:
+        row = tm.get_user_by_id(current_user.id)
+        user_key = (row.get("hunter_api_key") or "") if row else ""
+        if user_key:
+            return user_key
+    return os.getenv("HUNTER_API_KEY", "")
+
+
 @app.route("/api/hunter/find/<int:lead_id>")
+@login_required
 def hunter_find(lead_id):
     """Find email for a lead via Hunter.io Email Finder API."""
     import requests as req
-    api_key = os.getenv("HUNTER_API_KEY", "")
+    api_key = _get_hunter_key()
     if not api_key:
-        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+        return jsonify({"error": "Hunter.io API key not configured. Go to Settings → Hunter.io to add your key."}), 400
 
     lead = db.get_lead(lead_id)
     if not lead:
@@ -1709,12 +1764,13 @@ def hunter_find(lead_id):
 
 
 @app.route("/api/hunter/verify")
+@login_required
 def hunter_verify():
     """Verify an email address via Hunter.io."""
     import requests as req
-    api_key = os.getenv("HUNTER_API_KEY", "")
+    api_key = _get_hunter_key()
     if not api_key:
-        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+        return jsonify({"error": "Hunter.io API key not configured. Go to Settings → Hunter.io to add your key."}), 400
 
     email = request.args.get("email", "")
     if not email:
@@ -1742,12 +1798,13 @@ def hunter_verify():
 
 
 @app.route("/api/hunter/domain/<int:lead_id>")
+@login_required
 def hunter_domain(lead_id):
     """Search all emails for a company domain via Hunter.io."""
     import requests as req
-    api_key = os.getenv("HUNTER_API_KEY", "")
+    api_key = _get_hunter_key()
     if not api_key:
-        return jsonify({"error": "Hunter.io API key not set in .env"}), 400
+        return jsonify({"error": "Hunter.io API key not configured. Go to Settings → Hunter.io to add your key."}), 400
 
     lead   = db.get_lead(lead_id)
     website = lead.get("website", "") if lead else ""
@@ -2003,9 +2060,13 @@ def responsibilities():
     for r in all_resp:
         u = r["assigned_to"]
         grouped.setdefault(u, []).append(r)
+    # Build user_colors from team data so new members get their avatar color
+    all_users   = tm.get_all_users()
+    user_colors = {u["username"]: (u.get("avatar_color") or "#444") for u in all_users}
     return render_template("responsibilities.html",
                            grouped=grouped, all_resp=all_resp,
-                           team=TEAM_DISPLAY, filter_user=filter_user)
+                           team=TEAM_DISPLAY, filter_user=filter_user,
+                           user_colors=user_colors)
 
 
 # ── TEAM TASKS ─────────────────────────────────────────────────────────────────

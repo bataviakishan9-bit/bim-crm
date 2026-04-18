@@ -244,33 +244,48 @@ def init_db():
             )
         """)
         # Migrate existing tables — add columns if missing (IF NOT EXISTS avoids transaction abort)
-        for col, coldef in [("wa_phone", "TEXT"), ("callmebot_api_key", "TEXT")]:
+        for col, coldef in [
+            ("wa_phone",             "TEXT"),
+            ("callmebot_api_key",    "TEXT"),
+            ("sender_email_aliases", "TEXT"),
+            ("sender_title",         "TEXT"),
+            ("sender_phone",         "TEXT"),
+        ]:
             c.execute(f"ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS {col} {coldef}")
         conn.commit()
     else:
         c.execute("""
             CREATE TABLE IF NOT EXISTS user_settings (
-                username        TEXT PRIMARY KEY,
-                sender_email    TEXT,
-                sender_name     TEXT,
-                zoho_client_id     TEXT,
-                zoho_client_secret TEXT,
-                zoho_refresh_token TEXT,
-                zoho_dc            TEXT DEFAULT 'in',
-                zoho_account_id    TEXT,
-                is_locked          INTEGER DEFAULT 0,
-                wa_phone           TEXT,
-                callmebot_api_key  TEXT,
-                updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                username             TEXT PRIMARY KEY,
+                sender_email         TEXT,
+                sender_name          TEXT,
+                sender_email_aliases TEXT,
+                sender_title         TEXT,
+                sender_phone         TEXT,
+                zoho_client_id       TEXT,
+                zoho_client_secret   TEXT,
+                zoho_refresh_token   TEXT,
+                zoho_dc              TEXT DEFAULT 'in',
+                zoho_account_id      TEXT,
+                is_locked            INTEGER DEFAULT 0,
+                wa_phone             TEXT,
+                callmebot_api_key    TEXT,
+                updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         # Migrate existing tables — add columns if missing (SQLite doesn't support IF NOT EXISTS on ALTER)
-        for col, coldef in [("wa_phone", "TEXT"), ("callmebot_api_key", "TEXT")]:
+        for col, coldef in [
+            ("wa_phone",             "TEXT"),
+            ("callmebot_api_key",    "TEXT"),
+            ("sender_email_aliases", "TEXT"),
+            ("sender_title",         "TEXT"),
+            ("sender_phone",         "TEXT"),
+        ]:
             try:
                 c.execute(f"ALTER TABLE user_settings ADD COLUMN {col} {coldef}")
                 conn.commit()
             except Exception:
-                pass  # SQLite: swallow the error (no rollback needed — SQLite auto-resets)
+                pass  # SQLite: column already exists
 
     # whatsapp_logs table
     if _is_pg():
@@ -556,28 +571,33 @@ def save_user_settings(username: str, data: dict):
     if existing:
         sql = _named("""
             UPDATE user_settings SET
-                sender_email       = :sender_email,
-                sender_name        = :sender_name,
-                zoho_client_id     = :zoho_client_id,
-                zoho_client_secret = :zoho_client_secret,
-                zoho_refresh_token = :zoho_refresh_token,
-                zoho_dc            = :zoho_dc,
-                zoho_account_id    = :zoho_account_id,
-                is_locked          = :is_locked,
-                wa_phone           = :wa_phone,
-                callmebot_api_key  = :callmebot_api_key,
-                updated_at         = :updated_at
+                sender_email         = :sender_email,
+                sender_name          = :sender_name,
+                sender_email_aliases = :sender_email_aliases,
+                sender_title         = :sender_title,
+                sender_phone         = :sender_phone,
+                zoho_client_id       = :zoho_client_id,
+                zoho_client_secret   = :zoho_client_secret,
+                zoho_refresh_token   = :zoho_refresh_token,
+                zoho_dc              = :zoho_dc,
+                zoho_account_id      = :zoho_account_id,
+                is_locked            = :is_locked,
+                wa_phone             = :wa_phone,
+                callmebot_api_key    = :callmebot_api_key,
+                updated_at           = :updated_at
             WHERE username = :username
         """)
     else:
         sql = _named("""
             INSERT INTO user_settings (
                 username, sender_email, sender_name,
+                sender_email_aliases, sender_title, sender_phone,
                 zoho_client_id, zoho_client_secret, zoho_refresh_token,
                 zoho_dc, zoho_account_id, is_locked,
                 wa_phone, callmebot_api_key, updated_at
             ) VALUES (
                 :username, :sender_email, :sender_name,
+                :sender_email_aliases, :sender_title, :sender_phone,
                 :zoho_client_id, :zoho_client_secret, :zoho_refresh_token,
                 :zoho_dc, :zoho_account_id, :is_locked,
                 :wa_phone, :callmebot_api_key, :updated_at

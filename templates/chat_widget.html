@@ -360,7 +360,8 @@ function appendMessage(m, animate) {
   wrap.className = "chat-msg" + (isOwn?" own":"") + (isSys?" system":"");
   if (animate) wrap.style.animation = "fadeIn .2s ease";
 
-  const time    = m.created_at ? new Date(m.created_at+"Z").toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
+  const _ts     = m.created_at ? m.created_at.replace(' ','T').replace(/Z?$/,'Z') : null;
+  const time    = _ts ? new Date(_ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
   const color   = m.avatar_color || "#888";
   const initial = (m.display_name||m.username||"?")[0].toUpperCase();
   const msgHtml = renderMessage(m.message);
