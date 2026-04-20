@@ -1,10 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Command Center · BIM Infra{% endblock %}
+{% block head_extra %}
+<style>
+  .dash-hero { position: relative; overflow: hidden; }
+  .dash-hero-mark {
+    position: absolute;
+    right: -40px; top: -30px;
+    width: 220px; height: 220px;
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+    transform: rotate(-8deg);
+  }
+  .dash-hero-mark img { width: 100%; height: 100%; object-fit: contain; }
+  @media (max-width: 900px) { .dash-hero-mark { display: none; } }
+</style>
+{% endblock %}
 {% block content %}
 
 <!-- ════════════════════════════ PAGE HEADER ════════════════════════════ -->
-<div class="page-header rise">
-  <div style="position:relative;">
+<div class="page-header rise dash-hero">
+  <div class="dash-hero-mark" aria-hidden="true">
+    <img src="{{ url_for('static', filename='img/bim-mark.svg') }}" alt=""
+         onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.png') }}';">
+  </div>
+  <div style="position:relative; z-index:1;">
     <div class="eyebrow">{{ now.strftime('%A, %B %d · %Y') }}</div>
     <h1 class="display-2" style="margin-top:8px;">
       Good to see you, <span class="text-gold">{{ (current_user.display or 'Team')|title }}</span>.
@@ -16,7 +36,7 @@
       <strong style="color:var(--gold);">{{ stats.emails_today }}</strong> emails sent today.
     </p>
   </div>
-  <div class="d-flex gap-2" style="position:relative;">
+  <div class="d-flex gap-2" style="position:relative; z-index:1;">
     <a href="/replies/sync-delivery" class="btn btn-outline-secondary">
       <i class="bi bi-radar"></i> Run Delivery Scan
     </a>

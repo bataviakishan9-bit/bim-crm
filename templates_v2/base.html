@@ -17,18 +17,25 @@
   <!-- BIM Blacksmith v2 design system -->
   <link href="{{ url_for('static', filename='css/bim-v2.css') }}" rel="stylesheet">
 
+  <!-- Favicon · ribbon mark -->
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="alternate icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+
   {% block head_extra %}{% endblock %}
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════ SIDEBAR ═══════════════════════════════════════════ -->
 <aside class="sidebar">
-  <div class="brand">
-    <div>
+  <a class="brand" href="/" style="text-decoration:none; color:inherit;">
+    <img src="{{ url_for('static', filename='img/bim-mark.svg') }}"
+         alt="BIM Infra" class="brand-mark"
+         onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.png') }}';">
+    <div class="brand-wordmark">
       <h5>BIM Infra</h5>
       <p>Solutions · CRM</p>
     </div>
-  </div>
+  </a>
 
   <div class="nav-scroll">
     <nav class="nav flex-column">
