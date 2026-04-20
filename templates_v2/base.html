@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BIM Infra · Command Center{% endblock %}</title>
+
+  <!-- Bootstrap 5 + Icons (kept for backwards compatibility with existing templates) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Premium type stack -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- BIM Blacksmith v2 design system -->
+  <link href="{{ url_for('static', filename='css/bim-v2.css') }}" rel="stylesheet">
+
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════ SIDEBAR ═══════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="brand">
+    <div>
+      <h5>BIM Infra</h5>
+      <p>Solutions · CRM</p>
+    </div>
+  </div>
+
+  <div class="nav-scroll">
+    <nav class="nav flex-column">
+
+      <div style="padding:16px 12px 6px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-3);">Workspace</div>
+      <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+        <i class="bi bi-grid-1x2-fill"></i><span>Command Center</span>
+      </a>
+      <a href="/leads" class="nav-link {% if request.path.startswith('/leads') and 'new' not in request.path and 'import' not in request.path %}active{% endif %}">
+        <i class="bi bi-people-fill"></i><span>Leads</span>
+      </a>
+      <a href="/leads/new" class="nav-link {% if '/leads/new' in request.path %}active{% endif %}">
+        <i class="bi bi-person-plus-fill"></i><span>Add Lead</span>
+      </a>
+      <a href="/leads/import" class="nav-link {% if request.path == '/leads/import' %}active{% endif %}">
+        <i class="bi bi-file-earmark-arrow-up"></i><span>Import Excel</span>
+      </a>
+      <a href="/pipeline" class="nav-link {% if request.path == '/pipeline' %}active{% endif %}">
+        <i class="bi bi-kanban-fill"></i><span>Pipeline</span>
+      </a>
+      <a href="/prompt-generator" class="nav-link {% if '/prompt-generator' in request.path %}active{% endif %}">
+        <i class="bi bi-stars"></i><span>Prompt Generator</span>
+      </a>
+      <a href="/replies" class="nav-link {% if '/replies' in request.path %}active{% endif %}">
+        <i class="bi bi-reply-all-fill"></i><span>Replies Inbox</span>
+      </a>
+      <a href="/templates" class="nav-link {% if '/templates' in request.path %}active{% endif %}">
+        <i class="bi bi-envelope-paper-fill"></i><span>Email Templates</span>
+      </a>
+
+      <hr>
+      <div style="padding:6px 12px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-3);">Operations</div>
+      <a href="/projects" class="nav-link {% if request.path.startswith('/projects') %}active{% endif %}">
+        <i class="bi bi-building-fill-gear"></i><span>Projects</span>
+      </a>
+      <a href="/team-tasks" class="nav-link {% if '/team-tasks' in request.path %}active{% endif %}">
+        <i class="bi bi-list-task"></i><span>Team Tasks</span>
+      </a>
+      <a href="/reminders" class="nav-link {% if '/reminders' in request.path %}active{% endif %}">
+        <i class="bi bi-bell-fill"></i><span>Reminders</span>
+      </a>
+      <a href="/responsibilities" class="nav-link {% if '/responsibilities' in request.path %}active{% endif %}">
+        <i class="bi bi-person-check-fill"></i><span>Responsibilities</span>
+      </a>
+      <a href="/instructions" class="nav-link {% if '/instructions' in request.path %}active{% endif %}">
+        <i class="bi bi-journal-text"></i><span>Instructions</span>
+      </a>
+      {% if session.get('team_role') in ('admin','manager') %}
+      <a href="/activity-log" class="nav-link {% if '/activity-log' in request.path %}active{% endif %}">
+        <i class="bi bi-activity"></i><span>Activity Log</span>
+      </a>
+      {% endif %}
+
+      <hr>
+      <div style="padding:6px 12px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-3);">Finance</div>
+      <a href="/invoices" class="nav-link {% if request.path.startswith('/invoices') %}active{% endif %}">
+        <i class="bi bi-file-earmark-text-fill"></i><span>Invoices</span>
+      </a>
+      <a href="/expenses" class="nav-link {% if request.path == '/expenses' %}active{% endif %}">
+        <i class="bi bi-receipt"></i><span>Expenses</span>
+      </a>
+      <a href="/income" class="nav-link {% if request.path == '/income' %}active{% endif %}">
+        <i class="bi bi-cash-stack"></i><span>Income</span>
+      </a>
+
+      <hr>
+      <div style="padding:6px 12px; font-family:var(--font-mono); font-size:10px; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-3);">System</div>
+      <a href="/settings" class="nav-link {% if request.path == '/settings' %}active{% endif %}">
+        <i class="bi bi-gear-fill"></i><span>Settings</span>
+      </a>
+      <a href="/my-settings" class="nav-link {% if request.path == '/my-settings' %}active{% endif %}">
+        <i class="bi bi-envelope-gear-fill"></i><span>My Email Setup</span>
+      </a>
+      {% if _team_role == 'admin' %}
+      <a href="/team" class="nav-link {% if request.path == '/team' %}active{% endif %}">
+        <i class="bi bi-people-fill"></i><span>Team</span>
+      </a>
+      {% endif %}
+      <a href="https://bim-leadgen.onrender.com" target="_blank" class="nav-link" style="color:var(--gold); opacity:0.8;">
+        <i class="bi bi-search"></i><span>Lead Generator ↗</span>
+      </a>
+
+      <hr>
+      <div style="padding:14px 12px 6px;">
+        <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-2); border:1px solid var(--stroke-1); border-radius:var(--r-sm);">
+          {% set uname = current_user.display if current_user else 'U' %}
+          <div style="width:32px; height:32px; border-radius:50%; background:var(--grad-gold); display:grid; place-items:center; font-family:var(--font-display); font-weight:600; font-size:13px; color:#000;">
+            {{ uname[0]|upper }}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:12.5px; color:var(--ink-0); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ uname }}</div>
+            <div style="font-size:10px; color:var(--ink-3); font-family:var(--font-mono); letter-spacing:0.12em; text-transform:uppercase;">
+              {% if _team_role %}{{ _team_role }}{% else %}Member{% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      <a href="/change-password" class="nav-link" style="font-size:12px; padding:7px 12px !important;">
+        <i class="bi bi-key"></i><span>Change Password</span>
+      </a>
+      <a href="/logout" class="nav-link" style="color:var(--rose); font-size:12px; padding:7px 12px !important;">
+        <i class="bi bi-box-arrow-left"></i><span>Sign Out</span>
+      </a>
+
+    </nav>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════ MAIN ═══════════════════════════════════════════ -->
+<div class="main-content">
+
+  <!-- Topbar -->
+  <div class="top-bar d-flex align-items-center gap-3">
+    <div class="search-wrap" style="position:relative; flex:1; max-width:420px;">
+      <form action="/leads" method="GET" style="position:relative;">
+        <i class="bi bi-search"></i>
+        <input type="text" name="search"
+               placeholder="Search leads, projects, invoices…"
+               value="{{ request.args.get('search', '') }}"
+               autocomplete="off">
+        <button type="submit">⌘K</button>
+      </form>
+    </div>
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <a href="/reminders" class="btn btn-outline-secondary btn-sm" style="padding:7px 10px !important;" title="Reminders">
+        <i class="bi bi-bell"></i>
+      </a>
+      <a href="/replies" class="btn btn-outline-secondary btn-sm" style="padding:7px 10px !important;" title="Replies Inbox">
+        <i class="bi bi-envelope"></i>
+      </a>
+      <a href="/leads/new" class="btn btn-bim btn-sm">
+        <i class="bi bi-plus-lg"></i> New Lead
+      </a>
+      <div class="user-pill">
+        {% if _current_user %}
+          <div class="avatar" style="background:{{ _current_user.avatar_color }}">
+            {{ _current_user.display_name[0]|upper }}
+          </div>
+          <span>{{ _current_user.display_name }}</span>
+        {% else %}
+          <div class="avatar">{{ current_user.display[0]|upper }}</div>
+          <span>{{ current_user.display }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="main-inner">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }} alert-dismissible fade show rise" role="alert">
+            {{ msg | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% if current_user.is_authenticated %}
+  {% include "chat_widget.html" %}
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

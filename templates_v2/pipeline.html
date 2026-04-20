@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Pipeline · BIM Infra{% endblock %}
+{% block head_extra %}
+<style>
+  .pipeline-wrap { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: flex-start; }
+  .pipeline-col {
+    min-width: 268px; max-width: 268px;
+    background: var(--bg-1);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-md);
+    padding: 0 0 10px;
+    flex-shrink: 0;
+    transition: border-color var(--dur) var(--ease);
+  }
+  .pipeline-col.drag-over { border-color: var(--stroke-gold); }
+  .pipeline-col-header {
+    padding: 14px 16px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--stroke-1);
+    position: relative;
+  }
+  .pipeline-col-header .stage-name {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-1);
+    font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pipeline-col-header .stage-name::before {
+    content: ""; width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--stage-color, var(--gold));
+    box-shadow: 0 0 8px var(--stage-color, var(--gold-glow));
+  }
+  .pipeline-col-header .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--bg-3);
+    color: var(--ink-2);
+    border-radius: var(--r-xs);
+    border: 1px solid var(--stroke-1);
+  }
+  .pipeline-cards { padding: 12px 10px 4px; min-height: 80px; display: flex; flex-direction: column; gap: 9px; }
+
+  .pipeline-card {
+    background: var(--bg-3);
+    border: 1px solid var(--stroke-1);
+    border-radius: var(--r-sm);
+    padding: 12px 14px;
+    cursor: grab;
+    transition: all var(--dur) var(--ease);
+    position: relative; overflow: hidden;
+  }
+  .pipeline-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 2px; background: var(--stage-color, var(--gold)); opacity: 0;
+    transition: opacity var(--dur) var(--ease);
+  }
+  .pipeline-card:hover {
+    border-color: var(--stroke-gold);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .pipeline-card:hover::before { opacity: 1; }
+  .pipeline-card.dragging { opacity: 0.5; transform: rotate(1.5deg); cursor: grabbing; }
+
+  .card-name { font-size: 13px; font-weight: 600; color: var(--ink-0); line-height: 1.3; }
+  .card-company { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+
+  .card-meta { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+  .card-chip {
+    font-family: var(--font-mono);
+    font-size: 10px; padding: 2px 7px;
+    border-radius: 99px;
+    background: var(--bg-2); border: 1px solid var(--stroke-1);
+    color: var(--ink-2); letter-spacing: 0.02em;
+  }
+  .card-chip.hot  { background: rgba(244,63,94,0.10); color: var(--rose); border-color: rgba(244,63,94,0.35); }
+  .card-chip.med  { background: rgba(245,158,11,0.10); color: var(--warn); border-color: rgba(245,158,11,0.35); }
+  .card-chip.low  { background: rgba(34,211,238,0.08); color: var(--cyan); border-color: rgba(34,211,238,0.30); }
+  .card-chip.gold { background: var(--gold-faint); color: var(--gold); border-color: var(--stroke-gold); }
+
+  .card-foot {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--stroke-1);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10.5px; color: var(--ink-3);
+    font-family: var(--font-mono); letter-spacing: 0.02em;
+  }
+  .card-actions { display: none; position: absolute; top: 10px; right: 10px; gap: 4px; }
+  .pipeline-card:hover .card-actions { display: flex; }
+  .card-actions a, .card-actions select {
+    background: var(--bg-2); border: 1px solid var(--stroke-2);
+    border-radius: var(--r-xs); color: var(--ink-1);
+    padding: 3px 7px; font-size: 10.5px; text-decoration: none;
+    cursor: pointer;
+  }
+  .card-actions a:hover { background: var(--bg-4); color: var(--ink-0); }
+  .move-select { max-width: 120px; font-family: var(--font-mono); }
+  .empty-col {
+    color: var(--ink-4); text-align: center;
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 30px 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header rise">
+  <div style="position:relative;">
+    <div class="eyebrow">CRM · Stage Flow</div>
+    <h1 class="bim-h1" style="margin-top:6px;">Pipeline</h1>
+    <p class="text-ink-3 mono" style="font-size:11.5px; letter-spacing:0.12em; margin:4px 0 0;">DRAG CARDS TO MOVE LEADS BETWEEN STAGES</p>
+  </div>
+  <div class="d-flex gap-2" style="position:relative;">
+    <a href="/leads" class="btn btn-outline-secondary"><i class="bi bi-list-ul"></i> List View</a>
+    <a href="/leads/new" class="btn btn-bim"><i class="bi bi-person-plus-fill"></i> Add Lead</a>
+  </div>
+</div>
+
+<!-- Summary strip -->
+{% set total_all = namespace(v=0) %}
+{% for s in stages %}{% set total_all.v = total_all.v + totals[s] %}{% endfor %}
+<div class="row g-2 rise-2" style="margin-bottom:18px;">
+  <div class="col-md-3 col-6">
+    <div class="kpi-card" style="padding:16px;">
+      <div class="kpi-label">Total Pipeline</div>
+      <div class="kpi-value" style="font-size:30px; margin:10px 0 2px;">{{ total_all.v }}</div>
+      <div class="kpi-delta up mono" style="font-size:10.5px; letter-spacing:0.12em;">LIVE COUNT</div>
+    </div>
+  </div>
+  {% for s in ['Hot','Engaged','Contacted'] %}
+  <div class="col-md-3 col-6">
+    <div class="kpi-card" style="padding:16px; border-left: 2px solid {{ stage_colors[s] }};">
+      <div class="kpi-label">{{ s|upper }}</div>
+      <div class="kpi-value" style="font-size:30px; margin:10px 0 2px; color:{{ stage_colors[s] }};">{{ totals[s] }}</div>
+      <div class="kpi-delta mono" style="font-size:10.5px; letter-spacing:0.12em; color:var(--ink-3);">STAGE TOTAL</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Kanban Board -->
+<div class="pipeline-wrap rise-3" id="pipelineBoard">
+  {% for stage in stages %}
+  <div class="pipeline-col" id="col-{{ stage }}" data-stage="{{ stage }}"
+       style="--stage-color: {{ stage_colors[stage] }};"
+       ondragover="event.preventDefault(); this.classList.add('drag-over')"
+       ondragleave="this.classList.remove('drag-over')"
+       ondrop="handleDrop(event, '{{ stage }}')">
+
+    <div class="pipeline-col-header">
+      <div class="stage-name">{{ stage }}</div>
+      <span class="count">{{ totals[stage] }}</span>
+    </div>
+
+    <div class="pipeline-cards" id="cards-{{ stage }}">
+      {% if columns[stage] %}
+        {% for lead in columns[stage] %}
+        <div class="pipeline-card" id="card-{{ lead.id }}"
+             style="--stage-color: {{ stage_colors[stage] }};"
+             draggable="true"
+             ondragstart="handleDragStart(event, {{ lead.id }})"
+             ondragend="this.classList.remove('dragging')">
+
+          <div class="card-name">{{ lead.first_name }} {{ lead.last_name }}</div>
+          <div class="card-company">{{ lead.company or '—' }}</div>
+
+          <div class="card-meta">
+            <span class="card-chip {% if lead.priority_score >= 80 %}hot{% elif lead.priority_score >= 60 %}med{% else %}low{% endif %}">★ {{ lead.priority_score }}</span>
+            <span class="card-chip gold">TMPL {{ lead.email_template }}</span>
+            <span class="card-chip">{{ lead.country }}</span>
+          </div>
+
+          <div class="card-foot">
+            <span>EMAIL {{ lead.email_sequence_step }}/3</span>
+            {% if lead.last_email_sent %}
+            <span>{{ lead.last_email_sent | string | truncate(10, True, '') }}</span>
+            {% endif %}
+          </div>
+
+          <div class="card-actions">
+            <a href="/leads/{{ lead.id }}" title="View"><i class="bi bi-eye"></i></a>
+            <a href="/leads/{{ lead.id }}/edit" title="Edit"><i class="bi bi-pencil"></i></a>
+            <select class="move-select" onchange="moveCard({{ lead.id }}, this.value)" title="Move">
+              <option value="">Move →</option>
+              {% for s in stages %}{% if s != stage %}<option value="{{ s }}">{{ s }}</option>{% endif %}{% endfor %}
+            </select>
+          </div>
+
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-col">No leads</div>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let draggedId = null;
+
+function handleDragStart(e, leadId) {
+  draggedId = leadId;
+  document.getElementById('card-' + leadId).classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDrop(e, stage) {
+  e.preventDefault();
+  document.querySelectorAll('.pipeline-col').forEach(c => c.classList.remove('drag-over'));
+  if (draggedId) moveCard(draggedId, stage);
+}
+
+async function moveCard(leadId, stage) {
+  if (!stage) return;
+  try {
+    const r = await fetch(`/leads/${leadId}/move-stage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage })
+    });
+    if (r.ok) { window.location.reload(); }
+    else { alert('Move failed'); }
+  } catch (err) { alert('Network error'); }
+}
+</script>
+{% endblock %}

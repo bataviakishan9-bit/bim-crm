@@ -14,7 +14,11 @@ from zoho_mail import mail_client, SEQUENCE_SCHEDULE
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder="templates_v2",
+    static_folder="static",
+)
 app.secret_key = os.getenv("SECRET_KEY", "bim-infra-crm-2025")
 
 # ── CORS for mobile API ────────────────────────────────────────────────────────

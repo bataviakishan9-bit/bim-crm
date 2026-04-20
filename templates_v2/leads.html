@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Leads · BIM Infra{% endblock %}
+{% block content %}
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<div class="page-header rise">
+  <div style="position:relative;">
+    <div class="eyebrow">CRM · Lead Intelligence</div>
+    <h1 class="bim-h1" style="margin-top:6px;">Leads</h1>
+    <p class="text-ink-3 mono" style="margin:4px 0 0; font-size:11.5px; letter-spacing:0.12em;">
+      {{ leads|length }} RECORD{{ 'S' if leads|length != 1 }} · LIVE PIPELINE
+    </p>
+  </div>
+  <div class="d-flex gap-2" style="position:relative;">
+    <a href="/leads/import" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-arrow-up"></i> Import Excel</a>
+    <a href="/leads/new" class="btn btn-outline-secondary"><i class="bi bi-plus-lg"></i> Add Lead</a>
+    <form method="POST" action="/leads/send-all" onsubmit="return confirm('Send next sequence email to ALL eligible leads now?')">
+      <button class="btn btn-bim"><i class="bi bi-send-fill"></i> Send All</button>
+    </form>
+  </div>
+</div>
+
+{% if bulk_sent is defined %}
+<div class="alert alert-success rise" style="margin-bottom:18px;">
+  <i class="bi bi-check-circle me-1"></i>
+  <strong>Bulk send complete:</strong>
+  {{ bulk_sent }} email(s) sent · {{ bulk_skipped }} skipped.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════ FILTERS ═══════════════════════════ -->
+<div class="card rise-2" style="margin-bottom:18px; padding:14px 18px;">
+  <form method="GET" class="row g-2 align-items-center">
+    <div class="col-md-4">
+      <div style="position:relative;">
+        <i class="bi bi-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink-3); font-size:13px;"></i>
+        <input type="text" name="search" class="form-control" style="padding-left:34px;"
+               placeholder="Search name · email · company…" value="{{ search }}">
+      </div>
+    </div>
+    <div class="col-md-2">
+      <select name="status" class="form-select">
+        <option value="">All Status</option>
+        {% for s in ['New','Hot','Warm','Contacted','Engaged','Cold','Unsubscribed','Invalid'] %}
+        <option {% if status == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="country" class="form-select">
+        <option value="">All Countries</option>
+        {% for c in ['USA','Germany','Australia','UK','Canada','India','UAE'] %}
+        <option {% if country == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="template" class="form-select">
+        <option value="">All Templates</option>
+        <option value="A" {% if template == 'A' %}selected{% endif %}>A — Enterprise</option>
+        <option value="B" {% if template == 'B' %}selected{% endif %}>B — Architecture</option>
+        <option value="C" {% if template == 'C' %}selected{% endif %}>C — Drone/Scan</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-1">
+      <button type="submit" class="btn btn-bim flex-grow-1">Filter</button>
+      <a href="/leads" class="btn btn-outline-secondary" title="Clear"><i class="bi bi-x-lg"></i></a>
+    </div>
+  </form>
+</div>
+
+<!-- ═══════════════════════════ TABLE ═══════════════════════════ -->
+<div class="card rise-3" style="padding:0; overflow:hidden;">
+  <table class="table table-hover mb-0">
+    <thead>
+      <tr>
+        <th style="padding-left:20px !important;">Lead</th>
+        <th>Company</th>
+        <th>Email</th>
+        <th>Country</th>
+        <th>Status</th>
+        <th>Template</th>
+        <th>Score</th>
+        <th>Sequence</th>
+        <th style="text-align:right; padding-right:20px !important;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if leads %}
+        {% for lead in leads %}
+        <tr>
+          <td style="padding-left:20px !important;">
+            <div class="d-flex align-items-center gap-2">
+              {% set initials = ((lead.first_name or '?')[0] ~ (lead.last_name or ' ')[0])|upper %}
+              <div style="width:30px; height:30px; border-radius:50%;
+                          background: {% if lead.status == 'Hot' %}linear-gradient(135deg,#F43F5E,#881337){% elif lead.status == 'Won' %}linear-gradient(135deg,#84CC16,#365314){% elif lead.status == 'Invalid' %}linear-gradient(135deg,#475569,#1E293B){% else %}var(--grad-gold){% endif %};
+                          color:#000; display:grid; place-items:center; font-family:var(--font-display); font-weight:600; font-size:11px; flex-shrink:0;">
+                {{ initials }}
+              </div>
+              <a href="/leads/{{ lead.id }}" style="font-weight:600; color:var(--ink-0); font-size:13px;">
+                {% if lead.status == 'Hot' %}<span style="color:var(--rose);">🔥</span> {% endif %}
+                {{ lead.first_name }} {{ lead.last_name }}
+              </a>
+            </div>
+          </td>
+          <td style="color:var(--ink-1);">{{ lead.company or '—' }}</td>
+          <td class="mono" style="font-size:11.5px; color:var(--ink-2);">{{ lead.email }}</td>
+          <td class="mono" style="font-size:11.5px; color:var(--ink-2);">{{ lead.country }}</td>
+          <td>
+            {% set tone =
+              'gold' if lead.status in ('Hot','Warm')
+              else 'success' if lead.status in ('Won','Engaged')
+              else 'cyan' if lead.status == 'Contacted'
+              else 'danger' if lead.status in ('Invalid','Unsubscribed')
+              else 'warn' if lead.status == 'Cold'
+              else 'default'
+            %}
+            <span class="chip {{ tone if tone != 'default' else '' }}"><span class="pip"></span>{{ lead.status|upper }}</span>
+          </td>
+          <td class="mono" style="font-size:12px;">{{ lead.email_template }}</td>
+          <td>
+            <span class="chip {% if lead.priority_score >= 80 %}danger{% elif lead.priority_score >= 60 %}warn{% else %}cyan{% endif %}">
+              <span class="pip"></span>{{ lead.priority_score }}
+            </span>
+          </td>
+          <td style="min-width:110px;">
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress" style="flex:1;">
+                <div class="progress-bar" style="width: {{ (lead.email_sequence_step / 3) * 100 }}%;"></div>
+              </div>
+              <span class="mono text-ink-3" style="font-size:10.5px;">{{ lead.email_sequence_step }}/3</span>
+            </div>
+          </td>
+          <td style="text-align:right; padding-right:20px !important;">
+            <div class="d-inline-flex gap-1">
+              <a href="/leads/{{ lead.id }}" class="btn btn-outline-primary btn-sm">View</a>
+              {% if lead.phone %}
+              <a href="https://wa.me/{{ lead.phone | replace(' ','') | replace('+','') | replace('-','') | replace('(','') | replace(')','') }}"
+                 target="_blank" class="btn btn-sm"
+                 style="background:rgba(37,211,102,0.15); border:1px solid rgba(37,211,102,0.4); color:#25D366;"
+                 title="WhatsApp {{ lead.phone }}">
+                <i class="bi bi-whatsapp"></i>
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center; padding:60px 20px;">
+            <i class="bi bi-people" style="font-size:36px; color:var(--ink-4); display:block; margin-bottom:8px;"></i>
+            <div style="color:var(--ink-2); font-size:14px;">No leads found yet.</div>
+            <div style="margin-top:14px;">
+              <a href="/leads/new" class="btn btn-bim btn-sm"><i class="bi bi-plus-lg"></i> Add First Lead</a>
+              <a href="/leads/import" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-arrow-up"></i> Import Excel</a>
+            </div>
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

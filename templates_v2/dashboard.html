@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Command Center · BIM Infra{% endblock %}
+{% block content %}
+
+<!-- ════════════════════════════ PAGE HEADER ════════════════════════════ -->
+<div class="page-header rise">
+  <div style="position:relative;">
+    <div class="eyebrow">{{ now.strftime('%A, %B %d · %Y') }}</div>
+    <h1 class="display-2" style="margin-top:8px;">
+      Good to see you, <span class="text-gold">{{ (current_user.display or 'Team')|title }}</span>.
+    </h1>
+    <p style="color:var(--ink-2); margin-top:10px; font-size:14.5px; max-width:640px; position:relative;">
+      <strong style="color:var(--ink-0);">{{ stats.total_leads }}</strong> leads in the system ·
+      <strong style="color:var(--moss);">{{ stats.new_leads }}</strong> new this month ·
+      <strong style="color:var(--rose);">{{ stats.hot_leads }}</strong> marked hot ·
+      <strong style="color:var(--gold);">{{ stats.emails_today }}</strong> emails sent today.
+    </p>
+  </div>
+  <div class="d-flex gap-2" style="position:relative;">
+    <a href="/replies/sync-delivery" class="btn btn-outline-secondary">
+      <i class="bi bi-radar"></i> Run Delivery Scan
+    </a>
+    <a href="/leads/new" class="btn btn-bim">
+      <i class="bi bi-plus-lg"></i> New Lead
+    </a>
+  </div>
+</div>
+
+<!-- ════════════════════════════ KPI ROW ════════════════════════════ -->
+<div class="row g-3 mb-4 rise-2">
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Leads</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E8B84C" stop-opacity="0"/><stop offset="1" stop-color="#E8B84C"/></linearGradient></defs>
+        <path d="M0 28 L12 22 L24 24 L36 18 L48 14 L60 10 L74 6" fill="none" stroke="url(#g1)" stroke-width="1.8"/>
+      </svg>
+      <div class="kpi-value">{{ stats.total_leads }}</div>
+      <div class="kpi-delta up"><i class="bi bi-arrow-up-right"></i> All-time pipeline</div>
+    </div>
+  </div>
+
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">Hot Leads</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <path d="M0 24 L12 20 L24 26 L36 16 L48 18 L60 12 L74 8" fill="none" stroke="#F43F5E" stroke-width="1.8"/>
+      </svg>
+      <div class="kpi-value" style="color:var(--rose);">{{ stats.hot_leads }}</div>
+      <div class="kpi-delta up"><i class="bi bi-fire"></i> Close this month</div>
+    </div>
+  </div>
+
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">New This Month</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <rect x="2"  y="22" width="6" height="12" fill="#84CC16" opacity="0.5"/>
+        <rect x="12" y="18" width="6" height="16" fill="#84CC16" opacity="0.6"/>
+        <rect x="22" y="14" width="6" height="20" fill="#84CC16" opacity="0.7"/>
+        <rect x="32" y="20" width="6" height="14" fill="#84CC16" opacity="0.6"/>
+        <rect x="42" y="10" width="6" height="24" fill="#84CC16" opacity="0.85"/>
+        <rect x="52" y="12" width="6" height="22" fill="#84CC16"/>
+        <rect x="62" y="6"  width="6" height="28" fill="#84CC16"/>
+      </svg>
+      <div class="kpi-value" style="color:var(--moss);">{{ stats.new_leads }}</div>
+      <div class="kpi-delta up"><i class="bi bi-arrow-up-right"></i> Fresh pipeline</div>
+    </div>
+  </div>
+
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">Emails Sent · All</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <path d="M0 30 L12 26 L24 28 L36 22 L48 20 L60 16 L74 10" fill="none" stroke="#22D3EE" stroke-width="1.8"/>
+      </svg>
+      <div class="kpi-value">{{ stats.emails_sent }}</div>
+      <div class="kpi-delta up"><i class="bi bi-envelope"></i> Lifetime volume</div>
+    </div>
+  </div>
+
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">Sent Today</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <path d="M0 32 L12 28 L24 22 L36 26 L48 18 L60 14 L74 8" fill="none" stroke="#E8B84C" stroke-width="1.8"/>
+      </svg>
+      <div class="kpi-value" style="color:var(--gold);">{{ stats.emails_today }}</div>
+      <div class="kpi-delta up"><i class="bi bi-send"></i> Active today</div>
+    </div>
+  </div>
+
+  <div class="col-xxl col-xl-4 col-md-6">
+    <div class="kpi-card">
+      <div class="kpi-label">Pending Tasks</div>
+      <svg class="kpi-spark" viewBox="0 0 74 36" preserveAspectRatio="none">
+        <path d="M0 10 L12 14 L24 12 L36 18 L48 16 L60 22 L74 26" fill="none" stroke="#A8A29E" stroke-width="1.8"/>
+      </svg>
+      <div class="kpi-value" style="color:#CE93D8;">{{ stats.pending_tasks }}</div>
+      <div class="kpi-delta down"><i class="bi bi-hourglass-split"></i> Action required</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ ZOHO SCANNER ════════════════════════════ -->
+<div class="card rise-3" style="border-left: 3px solid var(--gold); margin-bottom: 18px;">
+  <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3" style="padding: 16px 20px;">
+    <div class="d-flex align-items-center gap-3">
+      <div style="width:40px; height:40px; background:var(--gold-faint); border:1px solid var(--stroke-gold); border-radius:var(--r-sm); display:grid; place-items:center;">
+        <i class="bi bi-radar" style="color:var(--gold); font-size:18px;"></i>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--ink-0);">Zoho Mail Scanner</div>
+        <div style="font-size:12px; color:var(--ink-2);">Check bounces · rejections · out-of-office · new replies</div>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/replies/sync-delivery" class="btn btn-bim btn-sm"><i class="bi bi-radar"></i> Run Delivery Scan</a>
+      <a href="/replies" class="btn btn-outline-secondary btn-sm"><i class="bi bi-inbox"></i> View Replies</a>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ INVALID LEADS ════════════════════════════ -->
+{% set invalid_count = stats.status_counts.get('Invalid', 0) %}
+{% if invalid_count > 0 %}
+<div class="card rise-3" style="border-left: 3px solid var(--rose); margin-bottom: 22px;">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-triangle-fill" style="color:var(--rose);"></i>
+      <strong style="color:var(--rose); font-size:14px;">{{ invalid_count }} Invalid Lead{{ 's' if invalid_count != 1 }}</strong>
+      <span class="text-ink-3" style="font-size:12px;">Emails bounced — use Hunter.io to find correct address</span>
+    </div>
+    <a href="/leads?status=Invalid" class="btn btn-outline-danger btn-sm">View All Invalid →</a>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th>Lead</th>
+          <th>Current Email</th>
+          <th>Company / Domain</th>
+          <th>Bounce Reason</th>
+          <th style="text-align:center;">Hunter.io</th>
+          <th>New Email</th>
+        </tr>
+      </thead>
+      <tbody id="invalidLeadsBody">
+        {% for lead in invalid_leads[:3] %}
+        <tr id="row-{{ lead.id }}">
+          <td>
+            <a href="/leads/{{ lead.id }}" style="font-weight:600; color:var(--gold);">
+              {{ lead.first_name }} {{ lead.last_name or '' }}
+            </a>
+          </td>
+          <td><span class="mono" style="color:var(--rose); font-size:12px;" id="cur-email-{{ lead.id }}">{{ lead.email }}</span></td>
+          <td>
+            {{ lead.company or '—' }}
+            {% if lead.website %}
+            <br><small class="text-ink-3 mono" style="font-size:10.5px;">{{ lead.website.replace('https://','').replace('http://','').replace('www.','')[:30] }}</small>
+            {% endif %}
+          </td>
+          <td style="font-size:11px;" class="text-ink-3">{{ lead.bounce_reason or '—' }}</td>
+          <td style="text-align:center;">
+            <div class="d-flex gap-1 justify-content-center">
+              <button class="btn btn-outline-primary btn-sm" onclick="hunterFind({{ lead.id }}, '{{ lead.first_name }}', '{{ lead.last_name or '' }}')">
+                <i class="bi bi-search"></i> Find
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="hunterDomain({{ lead.id }})">
+                <i class="bi bi-diagram-3"></i> Domain
+              </button>
+            </div>
+            <div id="hunter-result-{{ lead.id }}" class="mt-1" style="font-size:11px;"></div>
+          </td>
+          <td>
+            <form method="POST" action="/leads/{{ lead.id }}/update-email" class="d-flex gap-1 align-items-center" id="email-form-{{ lead.id }}">
+              <input type="email" name="email" id="new-email-{{ lead.id }}" class="form-control form-control-sm" style="font-size:11px; min-width:170px;" placeholder="new@email.com">
+              <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-check-lg"></i></button>
+              <a href="/leads/{{ lead.id }}/edit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil"></i></a>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ════════════════════════════ QUICK LAUNCH + STATUS SPLIT ════════════════════════════ -->
+<div class="row g-3 rise-4">
+
+  <!-- Quick Launch -->
+  <div class="col-lg-6">
+    <div class="card blueprint-bg" style="padding:20px;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="bim-h3" style="margin:0;">Quick Launch</h3>
+        <span class="chip"><span class="pip" style="background:var(--ink-3);"></span>⌘ + key</span>
+      </div>
+      <div class="row g-2">
+        <div class="col-6"><a href="/leads/new" class="btn w-100 d-flex justify-content-start"><i class="bi bi-person-plus-fill"></i> New Lead</a></div>
+        <div class="col-6"><a href="/projects" class="btn w-100 d-flex justify-content-start"><i class="bi bi-building-fill-gear"></i> New Project</a></div>
+        <div class="col-6"><a href="/leads/import" class="btn w-100 d-flex justify-content-start"><i class="bi bi-file-earmark-arrow-up"></i> Import Excel</a></div>
+        <div class="col-6"><a href="/pipeline" class="btn w-100 d-flex justify-content-start"><i class="bi bi-kanban-fill"></i> Open Pipeline</a></div>
+        <div class="col-6"><a href="/invoices" class="btn w-100 d-flex justify-content-start"><i class="bi bi-file-earmark-text-fill"></i> Create Invoice</a></div>
+        <div class="col-6"><a href="/reminders" class="btn w-100 d-flex justify-content-start"><i class="bi bi-bell-fill"></i> Add Reminder</a></div>
+        <div class="col-6"><a href="/templates" class="btn w-100 d-flex justify-content-start"><i class="bi bi-envelope-paper-fill"></i> Templates</a></div>
+        <div class="col-6"><a href="/prompt-generator" class="btn w-100 d-flex justify-content-start"><i class="bi bi-stars"></i> Prompt AI</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Breakdown -->
+  <div class="col-lg-6">
+    <div class="card" style="padding:20px;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="bim-h3" style="margin:0;">Pipeline Health</h3>
+        <span class="chip gold"><span class="pip"></span>LIVE</span>
+      </div>
+      {% set total = stats.total_leads or 1 %}
+      {% set statuses = [
+        ('New', stats.status_counts.get('New',0), 'moss'),
+        ('Contacted', stats.status_counts.get('Contacted',0), 'cyan'),
+        ('Qualified', stats.status_counts.get('Qualified',0), 'gold'),
+        ('Proposal', stats.status_counts.get('Proposal',0), 'warn'),
+        ('Won', stats.status_counts.get('Won',0), 'success'),
+        ('Lost', stats.status_counts.get('Lost',0), 'danger')
+      ] %}
+      {% for name, count, tone in statuses %}
+      <div style="padding:10px 0; border-bottom:1px solid var(--stroke-1);">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="d-flex align-items-center gap-2">
+            <span class="chip {{ tone }}"><span class="pip"></span>{{ name|upper }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <span class="mono" style="font-size:12px; color:var(--ink-0); font-weight:600;">{{ count }}</span>
+            <span class="mono text-ink-3" style="font-size:11px;">{{ ((count/total)*100)|round(1) }}%</span>
+          </div>
+        </div>
+        <div class="progress"><div class="progress-bar" style="width:{{ (count/total)*100 }}%;"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% block dashboard_extra %}{% endblock %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Reuse original Hunter.io handlers — preserve API contract */
+async function hunterFind(leadId, firstName, lastName) {
+  const resEl = document.getElementById('hunter-result-' + leadId);
+  resEl.innerHTML = '<span style="color:var(--ink-3);">Searching…</span>';
+  try {
+    const r = await fetch(`/leads/${leadId}/hunter-find?first=${encodeURIComponent(firstName)}&last=${encodeURIComponent(lastName)}`);
+    const data = await r.json();
+    if (data.email) {
+      document.getElementById('new-email-' + leadId).value = data.email;
+      resEl.innerHTML = '<span style="color:var(--moss);">✓ ' + data.email + '</span>';
+    } else {
+      resEl.innerHTML = '<span style="color:var(--rose);">No match</span>';
+    }
+  } catch (e) {
+    resEl.innerHTML = '<span style="color:var(--rose);">Error</span>';
+  }
+}
+async function hunterDomain(leadId) {
+  const resEl = document.getElementById('hunter-result-' + leadId);
+  resEl.innerHTML = '<span style="color:var(--ink-3);">Scanning domain…</span>';
+  try {
+    const r = await fetch(`/leads/${leadId}/hunter-domain`);
+    const data = await r.json();
+    if (data.emails && data.emails.length) {
+      resEl.innerHTML = '<span style="color:var(--cyan);">' + data.emails.length + ' found</span>';
+    } else {
+      resEl.innerHTML = '<span style="color:var(--rose);">No emails</span>';
+    }
+  } catch (e) {
+    resEl.innerHTML = '<span style="color:var(--rose);">Error</span>';
+  }
+}
+</script>
+{% endblock %}
