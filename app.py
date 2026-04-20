@@ -17,9 +17,18 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "bim-infra-crm-2025")
 
+# ── CORS for mobile API ────────────────────────────────────────────────────────
+try:
+    from flask_cors import CORS
+    CORS(app, resources={r"/api/v1/*": {"origins": "*"}},
+         allow_headers=["Authorization", "Content-Type", "X-User-Email"])
+except ImportError:
+    pass  # flask-cors not installed yet — CORS handled per-route in api_routes.py
+
 # ── Team / Chat integration ────────────────────────────────────────────────────
 import team as tm
 from chat_routes import register_chat_routes
+from api_routes import api as api_v1_blueprint
 
 try:
     tm.init_team_tables()
@@ -43,6 +52,9 @@ register_chat_routes(
     platform="crm",
     get_flask_user=lambda: current_user.username if current_user.is_authenticated else None,
 )
+
+# ── Mobile REST API ────────────────────────────────────────────────────────────
+app.register_blueprint(api_v1_blueprint)
 
 @app.context_processor
 def inject_team():
