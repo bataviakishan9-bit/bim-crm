@@ -14,12 +14,16 @@ from zoho_mail import mail_client, SEQUENCE_SCHEDULE
 
 load_dotenv()
 
-app = Flask(
-    __name__,
-    template_folder="templates_v2",
-    static_folder="static",
-)
+app = Flask(__name__, static_folder="static")
 app.secret_key = os.getenv("SECRET_KEY", "bim-infra-crm-2025")
+
+# ── Template loader: v2 first, legacy fallback ─────────────────────────────────
+from jinja2 import ChoiceLoader, FileSystemLoader
+_base = os.path.dirname(os.path.abspath(__file__))
+app.jinja_loader = ChoiceLoader([
+    FileSystemLoader(os.path.join(_base, "templates_v2")),
+    FileSystemLoader(os.path.join(_base, "templates")),
+])
 
 # ── CORS for mobile API ────────────────────────────────────────────────────────
 try:
