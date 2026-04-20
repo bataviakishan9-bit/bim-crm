@@ -60,16 +60,20 @@
     }
     .hero-watermark img { width: 100%; height: 100%; object-fit: contain; }
     .hero-brand .name {
-      font-family: var(--font-display);
-      font-size: 18px; font-weight: 600;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 19px; font-weight: 700;
       color: var(--ink-0);
-      letter-spacing: -0.01em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      line-height: 1.1;
     }
     .hero-brand .sub {
-      font-family: var(--font-mono);
-      font-size: 10.5px; letter-spacing: 0.24em;
-      text-transform: uppercase; color: var(--ink-3);
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11.5px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gold);
       margin-top: 3px;
+      font-weight: 600;
+      font-style: italic;
     }
 
     .hero-headline {
@@ -214,9 +218,10 @@
     }
     .foot-note {
       text-align: center;
-      font-family: var(--font-mono);
-      font-size: 10px; letter-spacing: 0.18em;
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11px; letter-spacing: 0.16em;
       text-transform: uppercase; color: var(--ink-4);
+      font-style: italic;
     }
 
     @media (max-width: 900px) {
@@ -236,17 +241,17 @@
 
     <!-- Giant silver ribbon watermark (subtle, behind headline) -->
     <div class="hero-watermark" aria-hidden="true">
-      <img src="{{ url_for('static', filename='img/bim-mark.svg') }}" alt=""
-           onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.png') }}';">
+      <img src="{{ url_for('static', filename='img/bim-mark.png') }}" alt=""
+           onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.svg') }}';">
     </div>
 
     <div class="hero-brand">
       <div class="hero-mark">
-        <img src="{{ url_for('static', filename='img/bim-mark.svg') }}" alt="BIM Infra Solutions"
-             onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.png') }}';">
+        <img src="{{ url_for('static', filename='img/bim-mark.png') }}" alt="BIM Infrasolutions LLP"
+             onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/bim-mark.svg') }}';">
       </div>
       <div>
-        <div class="name">BIM Infra Solutions</div>
+        <div class="name">BIM&nbsp;Infrasolutions&nbsp;LLP</div>
         <div class="sub">Command Center · v2.0</div>
       </div>
     </div>
@@ -276,7 +281,7 @@
     </div>
 
     <div class="hero-foot">
-      <span>© BIM Infra Solutions LLP</span>
+      <span>© BIM&nbsp;Infrasolutions&nbsp;LLP</span>
       <span>ISO 19650 · OpenBIM</span>
     </div>
   </section>
@@ -286,7 +291,7 @@
     <div class="form-inner">
       <div class="form-eyebrow">Secure Access</div>
       <h2 class="form-title">Welcome back.</h2>
-      <p class="form-note">Sign in to your BIM Infra Command Center.</p>
+      <p class="form-note">Sign in to your BIM&nbsp;Infrasolutions&nbsp;LLP Command Center.</p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -336,7 +341,7 @@
       </form>
 
       <hr class="meta-divider">
-      <p class="foot-note">BIM Infra Solutions LLP · Internal</p>
+      <p class="foot-note">BIM&nbsp;Infrasolutions&nbsp;LLP · Internal</p>
     </div>
   </section>
 

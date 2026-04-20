@@ -174,23 +174,26 @@ a:hover { color: var(--gold); }
 }
 .sidebar .brand-wordmark { display: flex; flex-direction: column; min-width: 0; }
 .sidebar .brand h5 {
-  font-family: var(--font-display);
-  font-size: 14.5px !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.01em !important;
+  font-family: "Times New Roman", Times, serif !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
   color: var(--ink-0) !important;
   margin: 0 !important;
   text-align: left !important;
+  text-transform: uppercase;
+  line-height: 1.1;
 }
 .sidebar .brand p {
-  font-family: var(--font-mono);
-  font-size: 10px !important;
-  letter-spacing: 0.22em !important;
+  font-family: "Times New Roman", Times, serif !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.18em !important;
   text-transform: uppercase;
-  color: var(--ink-3) !important;
+  color: var(--gold) !important;
   margin: 2px 0 0 !important;
   text-align: left !important;
-  font-weight: 500;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .sidebar .nav-scroll { padding: 14px 10px 20px !important; }
@@ -766,8 +769,4 @@ a:hover { color: var(--gold); }
   .sidebar .brand-wordmark,
   .sidebar .nav-link span:not(.badge),
   .sidebar div[style*="padding:10px"] { display: none !important; }
-  .sidebar .brand { justify-content: center; gap: 0; }
-  .sidebar .brand-mark { width: 34px; height: 34px; }
-  .sidebar .nav-link { justify-content: center; padding: 11px !important; }
-  .sidebar .nav-link i { width: auto !important; }
-}
+  .sideb
